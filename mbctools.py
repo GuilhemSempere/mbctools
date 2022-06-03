@@ -1116,7 +1116,7 @@ def trim_select_alls():
                     size = re.search('size=(.+?)$', target).group(1)
                     a = a + int(size)
                 b = int(a * float(ts) + 1)
-                out20.writelines(f"" + startLogRedirect('./{sample}.log') +
+                out20.writelines(f"" + startLogRedirect('./' + sample + '.log') +
                                  f"#Sum of sizes for {sample} = {a}'\n"
                                  f"#Threshold set to: {ts}'\n"
                                  f"#The sizes > {b} were conserved'\n"
@@ -1126,7 +1126,7 @@ def trim_select_alls():
                                  f" --fastq_stripright {trim_right} --fastaout tmp --minsize {b}\n"
                                  f"#Dereplication after trimming:'\n"
                                  f"#---------------------------------'\n"
-                                 f"vsearch --derep_fulllength  ./tmp --output {sample}_select.fas --sizeout\n"
+                                 f"vsearch --derep_fulllength  ./tmp --output {sample}_select.fas --sizein --sizeout\n"
                                  f"" + endLogRedirect())
             sys.stdout.write("----------------------")
             sys.stdout.write(f"\nSum of sizes for {sample} = {a}")
@@ -1180,7 +1180,7 @@ def trim_select_alls_r1():
                                  f" --fastq_stripright {trim_right} --fastaout tmp --minsize {b}\n"
                                  f"#Dereplication after trimming:'\n"
                                  f"#---------------------------------'\n"
-                                 f"vsearch --derep_fulllength  ./tmp --output {sample}_R1_select.fas --sizeout\n"
+                                 f"vsearch --derep_fulllength  ./tmp --output {sample}_R1_select.fas --sizein --sizeout\n"
                                  f"" + endLogRedirect())
             sys.stdout.write("----------------------")
             sys.stdout.write(f"\nSum of sizes for {sample}= {a}")
@@ -1239,7 +1239,7 @@ def trim_select():
                                  f' --fastq_stripright {trim_right} --fastaout tmp --minsize {b}\n'
                                  f'#Dereplication after trimming:\n'
                                  f'#---------------------------------\n'
-                                 f'vsearch --derep_fulllength  ./tmp --output {orient}_select.fas --sizeout\n'
+                                 f'vsearch --derep_fulllength  ./tmp --output {orient}_select.fas --sizein --sizeout\n'
                                  f'' + endLogRedirect())
             sys.stdout.write("----------------------")
             sys.stdout.write(f"\nSum of sizes for {orient} = {a}")
@@ -1302,7 +1302,7 @@ def trim_select_r1():
                                  f' --fastq_stripright {trim_right} --fastaout tmp --minsize {b}\n'
                                  f'#Dereplication after trimming:\n'
                                  f'#---------------------------------\n'
-                                 f'vsearch --derep_fulllength  ./tmp --output {orient}_R1_select.fas --sizeout\n'
+                                 f'vsearch --derep_fulllength  ./tmp --output {orient}_R1_select.fas --sizein --sizeout\n'
                                  f'' + endLogRedirect())
             sys.stdout.write("----------------------")
             sys.stdout.write(f"\nSum of sizes for {orient} = {a}")
