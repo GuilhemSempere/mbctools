@@ -1491,9 +1491,16 @@ if __name__ == "__main__":
     if rmenu == '10':
         submenu = input("\n***************** MININIMUM SIZE SELECTION MENU *****************\n\n"
                         "1- Apply the same size threshold for all samples for locus < 550 bp (merged)\n"
+                        "   i.e. you want to keep only sequences whose abundance (size)\n"
+                        "   is greater than x% of the total number of sequences for a given sample.\n"
+                        "   This threshold of x% can be chosen for each locus.\n\n"
                         "2- Apply the same size threshold for all samples for locus > 550 bp (R1)\n"
+                        "   idem than option 1 but only using the R1 sequences instead of merged ones.\n\n"
                         "3- Apply a specific size threshold for each sample, for locus < 550 bp (merged)\n"
-                        "4- Apply a specific size threshold for each sample, for locus > 550 bp (R1)\n\n"
+                        "   i.e. you want to modulate the threshold of x% by locus but also by sample\n"
+                        "   within a particular locus.\n\n"
+                        "4- Apply a specific size threshold for each sample, for locus > 550 bp (R1)\n"
+                        "   idem than option 3 but only using the R1 sequences instead of merged ones.\n\n"
                         " ************************************** Type 1, 2, 3, 4 or end:  ")
         if submenu == "1":
             prev_param()
