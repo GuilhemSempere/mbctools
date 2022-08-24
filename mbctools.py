@@ -38,6 +38,15 @@ import subprocess
 import re
 import glob
 
+
+# BEFORE ANYTHING ELSE: MAKE SURE VSEARCH IS INSTALLED ################################################################################################
+try:
+    p = subprocess.run(["vsearch"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+except FileNotFoundError:
+    print("Please install vsearch, then try again...")
+    exit()
+
+
 global dir_fastq, fastqr1_user, fastqr2_user, loci1_user, loci2_user, sample_user, minsize_user, minseqlength, alpha
 global identity, loc_sel, fastqr1s, fastqr2s, sam_sel, loci1s, loci2s, samples
 
@@ -130,10 +139,10 @@ def input_dir_fastq():
     global dir_fastq
     dir_fastq = input("\nEnter the entire path of the folder where are the fastq files "
                       "\ne.g. C:/Users/barnabe/Documents/NGSdata/run190823"
-                      "\ndefault = current_directory/fastq: ")
+                      "\ndefault = <current_directory>/fastq: ")
     while Path(dir_fastq).is_dir() is False and dir_fastq != '':
         dir_fastq = input("\nYour path is not valid. Please enter a valid name for the path\n"
-                          "default = current_directory/fastq: ")
+                          "default = <current_directory>/fastq: ")
     else:
         dir_fastq = current_dir + "/fastq"
 
