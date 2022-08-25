@@ -3,7 +3,7 @@
 """This Python program is a toolkit to make the use of VSEARCH easier and interactive, to analyze your
 metabarcoding NGS data in the best conditions. It proposes the following MAIN MENU:
 
-0  -> Initial and optional statistical analysis of your fastq files (slow - be patient!)
+0  -> Initial and optional quality checking of your fastq files (slow - be patient!)
 1  -> NEW COMPLETE ANALYSIS
 1a -> Re-analyze all loci, from the clustering step, modifying parameters
 1b -> Re-analyze only one locus of paired-end amplicon (merged reads), modifying parameters
@@ -44,7 +44,7 @@ try:
     p = subprocess.run(["vsearch"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 except FileNotFoundError:
     print("Please install vsearch, then try again...")
-    exit()
+    exit(1)
 
 
 global dir_fastq, fastqr1_user, fastqr2_user, loci1_user, loci2_user, sample_user, minsize_user, minseqlength, alpha
@@ -52,9 +52,11 @@ global identity, loc_sel, fastqr1s, fastqr2s, sam_sel, loci1s, loci2s, samples
 
 global shellCmd, scriptExt, fileSep
 winOS = "Windows" in platform.uname()
-shellCmd = "powershell" if winOS else "sh"
+shellCmd = "powershell" if winOS else "bash"
 scriptExt = "ps1" if winOS else "sh"
 fileSep = "\\" if winOS else "/"
+globalErrorOnStopCmd = "" if winOS else "set -e"
+localErrorOnStopCmd = "; If ($LASTEXITCODE -gt 0) { exit $LASTEXITCODE }" if winOS else ""
 
 
 # FUNCTIONS FOR MULTIPLATFORM SUPPORT #################################################################################
@@ -90,7 +92,6 @@ def folder_infiles():
         sys.stdout.write(f"\nThe folder {folder} already exists and will be used in the current analysis")
     else:
         os.mkdir(path)
-    sys.stdout.write("\n\n")
 
 
 def folder_scripts():
@@ -103,7 +104,6 @@ def folder_scripts():
         sys.stdout.write(f"\nThe folder {folder} already exists and will be used in the current analysis")
     else:
         os.mkdir(path)
-    sys.stdout.write("\n\n")
 
 
 def folder_loci():
@@ -120,7 +120,6 @@ def folder_loci():
             sys.stdout.write(f"\nThe R1 folder {loci2} already exists and will be used in the current analysis")
         else:
             os.mkdir(path)
-    sys.stdout.write("\n\n")
 
 
 def folder_refs():
@@ -131,13 +130,12 @@ def folder_refs():
         sys.stdout.write(f"\nThe folder {folder} already exists and will be used in the current analysis")
     else:
         os.mkdir(path)
-    sys.stdout.write("\n\n")
 
 
 # INPUTS AND VARIABLES ################################################################################################
 def input_dir_fastq():
     global dir_fastq
-    dir_fastq = input("\nEnter the entire path of the folder where are the fastq files "
+    dir_fastq = input("\nEnter the full path to the folder where fastq files are located"
                       "\ne.g. C:/Users/barnabe/Documents/NGSdata/run190823"
                       "\ndefault = <current_directory>/fastq: ")
     while Path(dir_fastq).is_dir() is False and dir_fastq != '':
@@ -368,26 +366,26 @@ def stat():
     """
     with open("scripts/infor1." + scriptExt, "w") as out3:
         i = 0
-        out3.write(main_stream_message(f'Checking R1 stats:'))
+        out3.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Checking R1 data quality:'))
         while i < len(samples):
             sample = samples[i]
             fastqr1 = fastqr1s[i]
             i = i + 1
-            out3.write(main_stream_message(f' {sample}'))
+            out3.write(main_stream_message(f' {sample}...'))
             out3.write(f"vsearch --fastq_eestats2 {dir_fastq}{fileSep}{fastqr1} --output "
-                       f"../infiles/{sample}_R1info.txt\n")
+                       f"../infiles/{sample}_R1info.txt" + localErrorOnStopCmd + "\n")
         out3.write(main_stream_message(f'\n\n'))
 
     with open("scripts/infor2." + scriptExt, "w") as out4:
         i = 0
-        out4.write(main_stream_message(f'Checking R2 stats:'))
+        out4.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Checking R2 data quality:'))
         while i < len(samples):
             sample = samples[i]
             fastqr2 = fastqr2s[i]
             i = i + 1
-            out4.write(main_stream_message(f' {sample}'))
+            out4.write(main_stream_message(f' {sample}...'))
             out4.write(f"vsearch --fastq_eestats2 {dir_fastq}{fileSep}{fastqr2} --output "
-                       f"../infiles/{sample}_R2info.txt\n")
+                       f"../infiles/{sample}_R2info.txt" + localErrorOnStopCmd + "\n")
         out4.write(main_stream_message(f'\n\n'))
 
 
@@ -404,7 +402,7 @@ def merging():
     """
     with open("scripts/merging." + scriptExt, "w") as out5:
         i = 0
-        out5.write(main_stream_message(f'merging sample reads:'))
+        out5.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Merging paired-end reads:'))
         while i < len(samples):
             sample = samples[i]
             fastqr1 = fastqr1s[i]
@@ -413,12 +411,12 @@ def merging():
                        f"vsearch --fastq_mergepairs {dir_fastq}{fileSep}{fastqr1} "
                        f"--reverse {dir_fastq}{fileSep}{fastqr2} --fastaout "
                        f"../infiles/{sample}.fa --fastq_allowmergestagger --fastq_maxee 1 --relabel "
-                       f"sample={sample}_merged\n")
+                       f"sample={sample}_merged" + localErrorOnStopCmd + "\n")
             i = i + 1
         out5.write(main_stream_message(f'\n\n'))
 
 
-# FASTQR TO FAS FOR AMPLICONS BASED ON SINGLE-END READS (R1 only) #####################################################
+# FASTQ TO FASTA FOR AMPLICONS BASED ON SINGLE-END READS (R1 only) #####################################################
 def fastq2fas():
     """When the merging R1/R2 is impossible because of an unadapted size of amplicon, the reads R1 of 301 bp
     (better than R2) are used to search the relevant sequences.
@@ -430,12 +428,12 @@ def fastq2fas():
     """
     with open("scripts/fqtofas." + scriptExt, "w") as out6:
         i = 0
-        out6.write(main_stream_message(f'fastqtofas:'))
+        out6.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Converting FASTQ files into FASTA format:'))
         while i < len(samples):
             sample = samples[i]
             fastqr1 = fastqr1s[i]
             out6.write(main_stream_message(f' {sample}...') +
-                       f"vsearch --fastq_filter {dir_fastq}{fileSep}{fastqr1} --fastaout ../infiles/{sample}_R1.fa\n")
+                       f"vsearch --fastq_filter {dir_fastq}{fileSep}{fastqr1} --fastaout ../infiles/{sample}_R1.fa" + localErrorOnStopCmd + "\n")
             i = i + 1
         out6.write(main_stream_message(f'\n\n'))
 
@@ -450,11 +448,11 @@ def derep_merged():
     Dereplicates in both strands and writes abundance annotation (frequency) to output.
     """
     with open("scripts/derep." + scriptExt, "w") as out7:
-        out7.write(main_stream_message(f'dereplication:'))
+        out7.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Dereplicating paired-end reads:'))
         for sample in samples:
             out7.write(main_stream_message(f' {sample}...') +
                        f"vsearch --derep_fulllength ../infiles/{sample}.fa --output ../infiles/{sample}_derep.fas "
-                       f"--sizeout --strand both\n")
+                       f"--sizeout --strand both" + localErrorOnStopCmd + "\n")
         out7.write(main_stream_message(f'\n\n'))
 
 
@@ -466,11 +464,11 @@ def derep_r1():
     SN = sample name
     """
     with open("scripts/derep_r1." + scriptExt, "w") as out8:
-        out8.write(main_stream_message(f'dereplicationR1:'))
+        out8.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Dereplicating single-end reads:'))
         for sample in samples:
             out8.write(main_stream_message(f' {sample}...') +
                        f"vsearch --derep_fulllength ../infiles/{sample}_R1.fa --output ../infiles/{sample}"
-                       f"_derep_R1.fas --sizeout --strand both --relabel sample={sample}_R1.\n")
+                       f"_derep_R1.fas --sizeout --strand both --relabel sample={sample}_R1." + localErrorOnStopCmd + "\n")
         out8.write(main_stream_message(f'\n\n'))
 
 
@@ -491,13 +489,13 @@ def cluster_merged():
     """
     with open("scripts/cluster." + scriptExt, "w") as out9:
         i = 0
-        out9.write(main_stream_message(f'cluster:'))
+        out9.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Clustering paired-end reads:'))
         while i < len(samples):
             sample = samples[i]
             out9.write(main_stream_message(f' {sample}...') +
                        f"vsearch --cluster_unoise ../infiles/{sample}_derep.fas --sizein --centroids "
                        f"../infiles/{sample}_cluster.fas --strand both --minsize {minsize_user} --sizeout --sizeorder "
-                       f"--unoise_alph {alpha} --minseqlength {minseqlength}\n")
+                       f"--unoise_alph {alpha} --minseqlength {minseqlength}" + localErrorOnStopCmd + "\n")
             i = i + 1
         out9.write(main_stream_message(f'\n\n'))
 
@@ -514,13 +512,13 @@ def cluster_r1():
     """
     with open("scripts/cluster_r1." + scriptExt, "w") as out10:
         i = 0
-        out10.write(main_stream_message(f'clusteringR1:'))
+        out10.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Clustering single-end reads:'))
         while i < len(samples):
             sample = samples[i]
             out10.write(main_stream_message(f' {sample}...') +
                         f"vsearch --cluster_unoise ../infiles/{sample}_derep_R1.fas --sizein --centroids "
                         f"../infiles/{sample}_cluster_R1.fas --strand both --minsize {minsize_user} --sizeout "
-                        f"--sizeorder --unoise_alpha {alpha} --minseqlength {minseqlength}\n")
+                        f"--sizeorder --unoise_alpha {alpha} --minseqlength {minseqlength}" + localErrorOnStopCmd + "\n")
             i = i + 1
         out10.write(main_stream_message(f'\n\n'))
 
@@ -534,13 +532,13 @@ def cluster_one_sample_1d():
     SS = selected sample
     """
     with open("scripts/cluster_one_sample_1d." + scriptExt, "w") as out1:
-        out1.write(main_stream_message(f'clustering {sam_sel}') +
+        out1.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Clustering reads for sample {sam_sel}:') +
                    f"vsearch --cluster_unoise ../infiles/{sam_sel}_derep.fas --sizein --centroids "
                    f"../infiles/{sam_sel}_cluster.fas --strand both --minsize {minsize_user} --sizeout "
-                   f"--sizeorder --unoise_alph {alpha} --minseqlength {minseqlength}\n"
+                   f"--sizeorder --unoise_alph {alpha} --minseqlength {minseqlength}" + localErrorOnStopCmd + "\n"
                    f"vsearch --cluster_unoise ../infiles/{sam_sel}_derep_R1.fas --sizein --centroids "
                    f"../infiles/{sam_sel}_cluster_R1.fas --strand both --minsize {minsize_user} "
-                   f"--sizeout --sizeorder --unoise_alph {alpha} --minseqlength {minseqlength}\n")
+                   f"--sizeout --sizeorder --unoise_alph {alpha} --minseqlength {minseqlength}" + localErrorOnStopCmd + "\n")
         out1.write(main_stream_message(f'\n\n'))
 
 
@@ -553,11 +551,11 @@ def chimera_merged():
     After denoising, the chimeras are very scarce.
     """
     with open("scripts/chimera." + scriptExt, "w") as out11:
-        out11.write(main_stream_message(f'chimera:'))
+        out11.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Detecting chimeras within paired-end reads:'))
         for sample in samples:
             out11.write(main_stream_message(f' {sample}...') +
                         f"vsearch --uchime3_denovo ../infiles/{sample}_cluster.fas --nonchimeras "
-                        f"../infiles/{sample}_cluster_OK.fas\n")
+                        f"../infiles/{sample}_cluster_OK.fas" + localErrorOnStopCmd + "\n")
         out11.write(main_stream_message(f'\n\n'))
 
 
@@ -569,11 +567,11 @@ def chimera_r1():
     After denoising, the chimeras are very scarce.
     """
     with open("scripts/chimera_r1." + scriptExt, "w") as out12:
-        out12.write(main_stream_message(f'chimeraR1:'))
+        out12.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Detecting chimeras within single-end reads:'))
         for sample in samples:
             out12.write(main_stream_message(f' {sample}...') +
                         f"vsearch --uchime3_denovo ../infiles/{sample}_cluster_R1.fas --nonchimeras"
-                        f" ../infiles/{sample}_cluster_R1_OK.fas\n")
+                        f" ../infiles/{sample}_cluster_R1_OK.fas" + localErrorOnStopCmd + "\n")
         out12.write(main_stream_message(f'\n\n'))
 
 
@@ -586,11 +584,11 @@ def chimera_one_sample_1d():
     After denoising, the chimeras are very scarce
     """
     with open("scripts/chimera_one_sample_1d." + scriptExt, "w") as out1:
-        out1.write(main_stream_message(f'chimera {sam_sel}') +
+        out1.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Detecting chimeras for sample {sam_sel}') +
                    f"vsearch --uchime3_denovo ../infiles/{sam_sel}_cluster.fas --nonchimeras ../infiles/{sam_sel}"
-                   f"_cluster_OK.fas\n"
+                   f"_cluster_OK.fas" + localErrorOnStopCmd + "\n"
                    f"vsearch --uchime3_denovo ../infiles/{sam_sel}_cluster_R1.fas --nonchimeras "
-                   f"../infiles/{sam_sel}_cluster_R1_OK.fas\n")
+                   f"../infiles/{sam_sel}_cluster_R1_OK.fas" + localErrorOnStopCmd + "\n")
         out1.write(main_stream_message(f'\n\n'))
 
 
@@ -606,12 +604,12 @@ def runloc_merged():
     the option 'identity'.
     """
     with open("scripts/locimerged." + scriptExt, "w") as out13:
-        out13.write(main_stream_message(f'runloci:'))
+        out13.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Affiliating clusters to loci for paired-end reads:'))
         for loci1b in loci1s:
             for sample in samples:
                 out13.write(main_stream_message(f' {sample} VS {loci1b}...') +
                             f"vsearch --usearch_global ../infiles/{sample}_cluster_OK.fas --db ../refs/{loci1b}.fas"
-                            f" --matched ../{loci1b}/{sample}_merged.fas --id {identity} --strand both\n")
+                            f" --matched ../{loci1b}/{sample}_merged.fas --id {identity} --strand both" + localErrorOnStopCmd + "\n")
         out13.write(main_stream_message(f'\n\n'))
 
 
@@ -626,12 +624,12 @@ def runloc_r1():
      real = a real from 0 to 1, generally around 0.7
     """
     with open("scripts/locir1." + scriptExt, "w") as out14:
-        out14.write(main_stream_message(f'lociR1:'))
+        out14.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Affiliating clusters to loci for single-end reads:'))
         for locus2b in loci2s:
             for sample in samples:
                 out14.write(main_stream_message(f' {sample} VS {locus2b}...') +
                             f"vsearch --usearch_global ../infiles/{sample}_cluster_R1_OK.fas --db ../refs/{locus2b}.fas"
-                            f" --matched ../{locus2b}/{sample}_R1.fas --id {identity} --strand both\n")
+                            f" --matched ../{locus2b}/{sample}_R1.fas --id {identity} --strand both" + localErrorOnStopCmd + "\n")
         out14.write(main_stream_message(f'\n\n'))
 
 
@@ -645,11 +643,11 @@ def runlocsel_merged():
     L1 = locus for amplicons based on paired-end reads
     """
     with open("scripts/loci_sel." + scriptExt, "w") as out15:
-        out15.write(main_stream_message(f'locsel:'))
+        out15.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'locsel:'))
         for sample in samples:
             out15.write(main_stream_message(f' {sample}...') +
                         f"vsearch --usearch_global ../infiles/{sample}_cluster_OK.fas --db ../refs/{loc_sel}.fas"
-                        f" --matched ../{loc_sel}/{sample}_merged.fas --id {identity} --strand both\n")
+                        f" --matched ../{loc_sel}/{sample}_merged.fas --id {identity} --strand both" + localErrorOnStopCmd + "\n")
         out15.write(main_stream_message(f'\n\n'))
 
 
@@ -662,11 +660,11 @@ def runlocsel_r1():
     L2 = locus name for amplicons with no mergeable R1/R2
     """
     with open("scripts/locir1_sel." + scriptExt, "w") as out16:
-        out16.write(main_stream_message(f'loc_selR1:'))
+        out16.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'loc_selR1:'))
         for sample in samples:
             out16.write(main_stream_message(f' {sample}...') +
                         f"vsearch --usearch_global ../infiles/{sample}_cluster_R1_OK.fas --db ../refs/{loc_sel}.fas"
-                        f" --matched ../{loc_sel}/{sample}_R1.fas --id {identity} --strand both\n")
+                        f" --matched ../{loc_sel}/{sample}_R1.fas --id {identity} --strand both" + localErrorOnStopCmd + "\n")
         out16.write(main_stream_message(f'\n\n'))
 
 
@@ -687,19 +685,19 @@ def runloc_one_sample_1d():
     the option 'identity'
     """
     with open("scripts/loci_merged_1d." + scriptExt, "w") as out13:
-        out13.write(main_stream_message(f'runloci:'))
+        out13.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'runloci:'))
         for loci1b in loci1s:
             out13.write(main_stream_message(f' {sam_sel}...') +
                         f"vsearch --usearch_global ../infiles/{sam_sel}_cluster_OK.fas --db ../refs/{loci1b}.fas"
-                        f" --matched ../{loci1b}/{sam_sel}_merged.fas --id {identity} --strand both\n")
+                        f" --matched ../{loci1b}/{sam_sel}_merged.fas --id {identity} --strand both" + localErrorOnStopCmd + "\n")
         out13.write(main_stream_message(f'\n\n'))
 
     with open("scripts/loci_R1_1d." + scriptExt, "w") as out14:
-        out14.write(main_stream_message(f'runlociR1:'))
+        out14.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'runlociR1:'))
         for locus2b in loci2s:
             out14.write(main_stream_message(f' {sam_sel}...') +
                         f"vsearch --usearch_global ../infiles/{sam_sel}_cluster_R1_OK.fas --db ../refs/{locus2b}.fas"
-                        f" --matched ../{locus2b}/{sam_sel}_R1.fas --id {identity} --strand both\n")
+                        f" --matched ../{locus2b}/{sam_sel}_R1.fas --id {identity} --strand both" + localErrorOnStopCmd + "\n")
             out14.write(main_stream_message(f'\n\n'))
 
 
@@ -712,12 +710,12 @@ def orient_merged():
     L1 = locus name for amplicons based on paired-end reads
     """
     with open("scripts/orientloc1." + scriptExt, "w") as out17:
-        out17.write(main_stream_message(f'orient:'))
+        out17.write(globalErrorOnStopCmd + "\n" + main_stream_message(f"Correcting paired-end reads' orientation:"))
         for locus1b in loci1s:
             for sample in samples:
                 out17.write(main_stream_message(f' {sample} VS {locus1b}...') +
                             f"vsearch --orient ../{locus1b}/{sample}_merged.fas --db ../refs/{locus1b}.fas --fastaout "
-                            f"../{locus1b}/{sample}_orient.fas\n")
+                            f"../{locus1b}/{sample}_orient.fas" + localErrorOnStopCmd + "\n")
         out17.write(main_stream_message(f'\n\n'))
 
 
@@ -729,12 +727,12 @@ def orient_r1():
     L2 = locus name for amplicons with no mergeable R1/R2
     """
     with open("scripts/orientloc2." + scriptExt, "w") as out18:
-        out18.write(main_stream_message(f'orientR1:'))
+        out18.write(globalErrorOnStopCmd + "\n" + main_stream_message(f"Correcting single-end reads' orientation:"))
         for locus2b in loci2s:
             for sample in samples:
                 out18.write(main_stream_message(f' {sample} VS {locus2b}...') +
                             f"vsearch --orient ../{locus2b}/{sample}_R1.fas --db ../refs/{locus2b}.fas --fastaout "
-                            f"../{locus2b}/{sample}_R1_orient.fas\n")
+                            f"../{locus2b}/{sample}_R1_orient.fas" + localErrorOnStopCmd + "\n")
         out18.write(main_stream_message(f'\n\n'))
 
 
@@ -747,11 +745,11 @@ def orient_one_loc_1b():
     SN = sample name
     """
     with open("scripts/orient_merged_1b." + scriptExt, "w") as out17:
-        out17.write(main_stream_message(f'orientR1:'))
+        out17.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'orientR1:'))
         for sample in samples:
             out17.write(main_stream_message(f' {sample}...') +
                         f"vsearch --orient ../{loc_sel}/{sample}_merged.fas --db ../refs/{loc_sel}.fas --fastaout "
-                        f"../{loc_sel}/{sample}_orient.fas\n")
+                        f"../{loc_sel}/{sample}_orient.fas" + localErrorOnStopCmd + "\n")
         out17.write(main_stream_message(f'\n\n'))
 
 
@@ -764,11 +762,11 @@ def orient_one_loc_1c():
     SN = sample name
     """
     with open("scripts/orient_R1_1c." + scriptExt, "w") as out18:
-        out18.write(main_stream_message(f'orientR1:'))
+        out18.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'orientR1:'))
         for sample in samples:
             out18.write(main_stream_message(f' {sample}...') +
                         f"vsearch --orient ../{loc_sel}/{sample}_R1.fas --db ../refs/{loc_sel}.fas --fastaout "
-                        f"../{loc_sel}/{sample}_R1_orient.fas\n")
+                        f"../{loc_sel}/{sample}_R1_orient.fas" + localErrorOnStopCmd + "\n")
         out18.write(main_stream_message(f'\n\n'))
 
 
@@ -783,11 +781,11 @@ def orient_one_sample_1d():
     SS = selected sample
     """
     with open("scripts/orient_merged_1d." + scriptExt, "w") as out17:
-        out17.write(main_stream_message(f'loci1:'))
+        out17.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'loci1:'))
         for locus1b in loci1s:
             out17.write(main_stream_message(f' {sam_sel}...') +
                         f"vsearch --orient ../{locus1b}/{sam_sel}_merged.fas --db ../refs/{locus1b}.fas --fastaout "
-                        f"../{locus1b}/{sam_sel}_orient.fas\n")
+                        f"../{locus1b}/{sam_sel}_orient.fas" + localErrorOnStopCmd + "\n")
         out17.write(main_stream_message(f'\n\n'))
 
     with open("scripts/orient_R1_1d." + scriptExt, "w") as out18:
@@ -795,7 +793,7 @@ def orient_one_sample_1d():
         for locus2b in loci2s:
             out18.write(main_stream_message(f' {sam_sel}...') +
                         f"vsearch --orient ../{locus2b}/{sam_sel}_merged.fas --db ../refs/{locus2b}.fas --fastaout "
-                        f"../{locus2b}/{sam_sel}_R1_orient.fas\n")
+                        f"../{locus2b}/{sam_sel}_R1_orient.fas" + localErrorOnStopCmd + "\n")
         out18.write(main_stream_message(f'\n\n'))
 
 
@@ -804,38 +802,65 @@ def runall_0():
     """ Defines the run order for option 1
     """
     with open("scripts/runall0." + scriptExt, "w") as out19:
-        out19.write("./infor1." + scriptExt + "\n"
-                    "./infor2." + scriptExt + "\n")
+        if not winOS:
+            out19.write(start_log_redirect('../infiles/results.log') + 
+            "scriptArray=('./infor1." + scriptExt + "' './infor2." + scriptExt + "')\n" +
+            'for script in "${scriptArray[@]}"\n' +
+            '    do\n' +
+            '    if ! ${script}; then\n' +
+            '        printf "Error executing ${script}\\n\\n" >&3\n' +
+            '        exit 1\n' +
+            '    fi\n' +
+            'done\n' +
+            end_log_redirect())
+        else:
+            out19.write(start_log_redirect('../infiles/results.log') +
+            '   $scriptArray = @("./infor1.' + scriptExt + '", "./infor2.' + scriptExt + '")\n' + 
+            '   For ($i=0; $i -lt $scriptArray.Length; $i++) {\n' +
+            '        $script = $scriptArray[$i]\n' +
+            '        & "$script" ; If ($LASTEXITCODE -gt 0) { "Error executing $script"; exit $LASTEXITCODE }\n' +
+            '   }\n' +
+            end_log_redirect())
 
     os.chdir('scripts')
-    sys.stdout.write("The statistical analyses are being processed by 'vsearch', be patient !")
-    subprocess.run([shellCmd, "./runall0." + scriptExt])
+    if not winOS:
+        for file in os.listdir("."):
+            os.chmod(file, 0o755)
+
+    sys.stdout.write("Quality checking is being processed by 'vsearch', be patient!\n\n")
+    return subprocess.run([shellCmd, "./runall0." + scriptExt]).returncode
 
 
 def runall_1():
     """ Defines the run order for option 1
     """
     with open("scripts/runall1." + scriptExt, "w") as out19:
-        out19.write(start_log_redirect('../infiles/results.log') +
-                    "./merging." + scriptExt + "\n"
-                    "./fqtofas." + scriptExt + "\n"
-                    "./derep." + scriptExt + "\n"
-                    "./derep_r1." + scriptExt + "\n"
-                    "./cluster." + scriptExt + "\n"
-                    "./cluster_r1." + scriptExt + "\n"
-                    "./chimera." + scriptExt + "\n"
-                    "./chimera_r1." + scriptExt + "\n"
-                    "./locimerged." + scriptExt + "\n"
-                    "./locir1." + scriptExt + "\n" 
-                    "./orientloc1." + scriptExt + "\n"
-                    "./orientloc2." + scriptExt + "\n"
-                    + end_log_redirect())
+        if not winOS:
+            out19.write(start_log_redirect('../infiles/results.log') + 
+            "scriptArray=('./merging." + scriptExt + "' './fqtofas." + scriptExt + "' './derep." + scriptExt + "' './derep_r1." + scriptExt + "' './cluster." + scriptExt + "' './cluster_r1." + scriptExt + "' './chimera." + scriptExt + "' './chimera_r1." + scriptExt + "' './locimerged." + scriptExt + "' './locir1." + scriptExt + "' './orientloc1." + scriptExt + "' './orientloc2." + scriptExt + "')\n" +
+            'for script in "${scriptArray[@]}"\n' +
+            '    do\n' +
+            '    if ! ${script}; then\n' +
+            '        printf "Error executing ${script}\\n\\n" >&3\n' +
+            '        exit 1\n' +
+            '    fi\n' +
+            'done\n' +
+            end_log_redirect())
+        else:
+            out19.write(start_log_redirect('../infiles/results.log') +
+            '   $scriptArray = @("./merging.' + scriptExt + '", "./fqtofas.' + scriptExt + '", "./derep.' + scriptExt + '", "./derep_r1.' + scriptExt + '", "./cluster.' + scriptExt + '", "./cluster_r1.' + scriptExt + '", "./chimera.' + scriptExt + '", "./chimera_r1.' + scriptExt + '", "./locimerged.' + scriptExt + '", "./locir1.' + scriptExt + '", "./orientloc1.' + scriptExt + '", "./orientloc2.' + scriptExt + '")\n' + 
+            '   For ($i=0; $i -lt $scriptArray.Length; $i++) {\n' +
+            '        $script = $scriptArray[$i]\n' +
+            '        & "$script" ; If ($LASTEXITCODE -gt 0) { "Error executing $script"; exit $LASTEXITCODE }\n' +
+            '   }\n' +
+            end_log_redirect())
+
 
     os.chdir('scripts')
     if not winOS:
         for file in os.listdir("."):
             os.chmod(file, 0o755)
-    subprocess.run([shellCmd, "./runall1." + scriptExt])
+    return subprocess.run([shellCmd, "./runall1." + scriptExt]).returncode
 
 
 def runall_1a():
@@ -1026,10 +1051,10 @@ def trim_select_alls():
                                  f"#Trimming left and right primers:'\n"
                                  f"#---------------------------------'\n"
                                  f"vsearch --fastx_filter {sample}_orient.fas --fastq_stripleft {trim_left} "
-                                 f" --fastq_stripright {trim_right} --fastaout tmp --minsize {b}\n"
+                                 f" --fastq_stripright {trim_right} --fastaout tmp --minsize {b}" + localErrorOnStopCmd + "\n"
                                  f"#Dereplication after trimming:'\n"
                                  f"#---------------------------------'\n"
-                                 f"vsearch --derep_fulllength ./tmp --output {sample}_select.fas --sizein --sizeout\n"
+                                 f"vsearch --derep_fulllength ./tmp --output {sample}_select.fas --sizein --sizeout" + localErrorOnStopCmd + "\n"
                                  f"" + end_log_redirect())
             sys.stdout.write("----------------------")
             sys.stdout.write(f"\nSum of sizes for {sample} = {a}")
@@ -1080,11 +1105,11 @@ def trim_select_alls_r1():
                                  f"#Trimming left and right primers:'\n"
                                  f"#---------------------------------'\n"
                                  f"vsearch --fastx_filter {sample}_R1_orient.fas --fastq_stripleft {trim_left} "
-                                 f" --fastq_stripright {trim_right} --fastaout tmp --minsize {b}\n"
+                                 f" --fastq_stripright {trim_right} --fastaout tmp --minsize {b}" + localErrorOnStopCmd + "\n"
                                  f"#Dereplication after trimming:'\n"
                                  f"#---------------------------------'\n"
                                  f"vsearch --derep_fulllength ./tmp --output {sample}_R1_select.fas --sizein "
-                                 f"--sizeout\n"
+                                 f"--sizeout" + localErrorOnStopCmd + "\n"
                                  f"" + end_log_redirect())
             sys.stdout.write("----------------------")
             sys.stdout.write(f"\nSum of sizes for {sample}= {a}")
@@ -1259,7 +1284,7 @@ if __name__ == "__main__":
           "STEPS 1, 2 and 3 of the MAIN MENU are mandatory for a complete analysis while others are optional\n"
           "#################################################################################################")
     rmenu = input("\n************************************** MAIN MENU *************************************\n\n"
-                  "0  -> Initial and optional statistical analysis of your fastq files (slow - be patient!)\n"
+                  "0  -> Initial and optional quality checking of your fastq files (slow - be patient!)\n"
                   "1  -> NEW COMPLETE ANALYSIS\n"
                   "1a -> Re-analyze all loci, from the clustering step, modifying parameters\n"
                   "1b -> Re-analyze only one locus of paired-end amplicon (merged reads), modifying parameters\n"
@@ -1279,8 +1304,13 @@ if __name__ == "__main__":
         folder_infiles()
         folder_scripts()
         stat()
-        runall_0()
-        sys.stdout.write("\n\n**** YOUR RUN OPTION 0 IS COMPLETE ****\n\n")
+
+        sys.stdout.write("\n\n")
+        if runall_0() > 0:
+            print("\nQuality checking execution failed, please check infiles/results.log")
+            exit(1)
+
+        sys.stdout.write("\n**** PROCEDURE 0 (quality checking) EXECUTION IS COMPLETE ****\n\n")
 
     # NEW ANALYSIS
     if rmenu == "1":
@@ -1311,11 +1341,16 @@ if __name__ == "__main__":
         runloc_r1()
         orient_merged()
         orient_r1()
-        runall_1()
+
+        sys.stdout.write("\n\n")
+        if runall_1() > 0:
+            print("\nMain analysis execution failed, please check infiles/results.log")
+            exit(1)
+
         nb_clus()
         nb_seqbyloc_merged()
         nb_seqbyloc_r1()
-        sys.stdout.write("\n\n**** YOUR RUN OPTION 1 IS COMPLETE ****\n\n")
+        sys.stdout.write("\n**** PROCEDURE 1 (main analysis) EXECUTION IS COMPLETE ****\n\n")
 
     # Re-analyze all loci, from the clustering step, modifying parameters
     if rmenu == "1a":
