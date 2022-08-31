@@ -1,9 +1,9 @@
 #!/usr/bin/python3
 
-"""This Python program is a toolkit to make the use of VSEARCH easier and interactive, to analyze your
+"""This Python program is a toolkit to make the use of VSEARCH easier and interactive, to analyze
 metabarcoding NGS data in the best conditions. It proposes the following MAIN MENU:
 
-0  -> Initial and optional quality checking of your fastq files (slow - be patient!)
+0  -> Initial and optional quality checking of fastq files (slow - be patient!)
 1  -> NEW COMPLETE ANALYSIS
 1a -> Re-analyze all loci, from the clustering step, modifying parameters
 1b -> Re-analyze only one locus of paired-end amplicon (merged reads), modifying parameters
@@ -67,11 +67,11 @@ def start_log_redirect(filepath):
         return "&{\n"
 
 
-def end_log_redirect():
+def end_log_redirect(filepath):
     if not winOS:
         return "exec 1>&3 2>&4\n"
     else:
-        return "} 2> '../infiles/results.log'\n"
+        return "} 2> " + filepath + "\n"
 
 
 def main_stream_message(message):
@@ -139,7 +139,7 @@ def input_dir_fastq():
                       "\ne.g. C:/Users/barnabe/Documents/NGSdata/run190823"
                       "\ndefault = <current_directory>/fastq: ")
     while Path(dir_fastq).is_dir() is False and dir_fastq != '':
-        dir_fastq = input("\nYour path is not valid. Please enter a valid name for the path\n"
+        dir_fastq = input("\nPath is not valid. Please enter a path\n"
                           "default = <current_directory>/fastq: ")
     else:
         dir_fastq = current_dir + "/fastq"
@@ -147,9 +147,9 @@ def input_dir_fastq():
 
 def input_fastqr1_user():
     global fastqr1_user, fastqr1s
-    fastqr1_user = input("\nEnter the name of your fastqR1 file, default = fastqR1.txt: ")
+    fastqr1_user = input("\nEnter R1 fastq file name, default = fastqR1.txt: ")
     while os.path.isfile(fastqr1_user) is False and fastqr1_user != '':
-        fastqr1_user = input("\nYour file name is not valid, please enter a valid name\n"
+        fastqr1_user = input("\nFile name is not valid, please enter a valid file name\n"
                              "default = fastqR1.txt: ")
     else:
         fastqr1_user = 'fastqR1.txt'
@@ -159,9 +159,9 @@ def input_fastqr1_user():
 
 def input_fastqr2_user():
     global fastqr2_user, fastqr2s
-    fastqr2_user = input("\nEnter the name of your fastqR2 file, default = fastqR2.txt: ")
+    fastqr2_user = input("\nEnter R2 fastq file name, default = fastqR2.txt: ")
     while os.path.isfile(fastqr2_user) is False and fastqr2_user != '':
-        fastqr2_user = input("\nYour file name is not valid, please enter a valid name\n"
+        fastqr2_user = input("\nFile name is not valid, please enter a valid file name\n"
                              "default = fastqR2.txt: ")
     else:
         fastqr2_user = 'fastqR2.txt'
@@ -171,10 +171,10 @@ def input_fastqr2_user():
 
 def input_loci1_user():
     global loci1_user, loci1s
-    loci1_user = input("\nEnter the name of your file containing the loci based on paired-end reads\n"
+    loci1_user = input("\nEnter the name of the file containing loci based on paired-end reads\n"
                        "default = locus1.txt: ")
     while os.path.isfile(loci1_user) is False and loci1_user != '':
-        loci1_user = input("\nYour file name is not valid, please enter a valid name: ")
+        loci1_user = input("\nFile name is not valid, please enter a valid file name: ")
     else:
         loci1_user = 'locus1.txt'
     with open(loci1_user, "r") as out3:
@@ -183,10 +183,10 @@ def input_loci1_user():
 
 def input_loci2_user():
     global loci2_user, loci2s
-    loci2_user = input("\nEnter the name of your file containing the loci based on single-end reads only (R1),\n"
+    loci2_user = input("\nEnter the name of the file containing loci based on single-end reads only (R1),\n"
                        "default = locus2.txt: ")
     while os.path.isfile(loci2_user) is False and loci2_user != '':
-        loci2_user = input("\nYour name is not valid, please enter a valid name: ")
+        loci2_user = input("\nFile name is not valid, please enter a valid file name: ")
     else:
         loci2_user = 'locus2.txt'
 
@@ -196,9 +196,9 @@ def input_loci2_user():
 
 def input_sample_user():
     global sample_user
-    sample_user = input("\nEnter the name of your file containing the sample names, default = samples.txt: ")
+    sample_user = input("\nEnter the name of the file containing sample names, default = samples.txt: ")
     while os.path.isfile(sample_user) is False and sample_user != '':
-        sample_user = input("\nYour file name is not valid, please enter a valid name\n"
+        sample_user = input("\nFile name is not valid, please enter a valid file name\n"
                             "default = samples.txt: ")
     else:
         sample_user = 'samples.txt'
@@ -209,10 +209,10 @@ def input_sample_user():
 
 def input_minsize_user():
     global minsize_user
-    minsize_user = input("\nEnter the minsize option value for your clusters,\n"
-                         "i.e. the minimum abundance of the retained clusters, default = 8: ")
+    minsize_user = input("\nEnter the minsize option value for clusters,\n"
+                         "i.e. the minimum sequence abundance of the retained clusters, default = 8: ")
     while minsize_user.isnumeric() is False and minsize_user != '':
-        minsize_user = input("\nYour minsize option may be an integer, e.g. 2, 10, 50... default = 8: : ")
+        minsize_user = input("\nMinsize option must be an integer, e.g. 2, 10, 50... default = 8: : ")
     if minsize_user == '':
         minsize_user = '8'
 
@@ -221,25 +221,25 @@ def input_minseqlength():
     global minseqlength
     minseqlength = input("\nEnter the minimum length of sequences to keep for any locus, default = 100: ")
     while minseqlength.isnumeric() is False and minseqlength != '':
-        minseqlength = input("\nYour minimum length may be an integer, e.g. 100, 150, 180... default = 100: ")
+        minseqlength = input("\nMinimum length must be an integer, e.g. 100, 150, 180... default = 100: ")
     if minseqlength == '':
         minseqlength = '100'
 
 
 def input_alpha():
     global alpha
-    alpha = input("\nEnter your alpha parameter for the clustering, default = 2: ")
+    alpha = input("\nEnter alpha parameter for the clustering, default = 2: ")
     while alpha.isnumeric() is False and alpha != '':
-        alpha = input("\nYour alpha parameter may be an integer, e.g. 0, 1, 2, 3... default = 2: ")
+        alpha = input("\nAlpha parameter must be an integer, e.g. 0, 1, 2, 3... default = 2: ")
     if alpha == '':
         alpha = '2'
 
 
 def input_identity():
     global identity
-    identity = input("\nEnter your identity parameter to BLAST the clusters against the references, default = 0.7: ")
+    identity = input("\nEnter identity parameter to BLAST the clusters against references, default = 0.7: ")
     while identity > '1' and identity != '':
-        identity = input("\nYour identity parameter may be a decimal < 1, e.g. 0.85, 0.75, 0.95... default = 0.7: ")
+        identity = input("\nIdentity parameter must be a decimal < 1, e.g. 0.85, 0.75, 0.95... default = 0.7: ")
     if identity == '':
         identity = '0.7'
 
@@ -248,7 +248,7 @@ def input_loc_sel_merged():
     global loc_sel
     loc_sel = input("\nEnter the name of the locus analysed by paired-end reads you want to rerun, no default: ")
     while loc_sel not in loci1s:
-        loc_sel = input("\nYour locus name is not valid. Please enter the valid name of the locus: ")
+        loc_sel = input("\nLocus name is not valid. Please enter the valid name of the locus: ")
 
 
 def input_loc_sel_r1():
@@ -256,14 +256,14 @@ def input_loc_sel_r1():
     loc_sel = input("\nEnter the name of the locus analysed by only single-end (R1) reads "
                     "you want to rerun, no default: ")
     while loc_sel not in loci2s:
-        loc_sel = input("\nYour locus name is not valid. Please enter the valid name of the locus: ")
+        loc_sel = input("\nLocus name is not valid. Please enter the valid name of the locus: ")
 
 
 def input_sam_sel():
     global sam_sel, samples
     sam_sel = input("\nEnter the sample name you want to rerun, no default: ")
     while sam_sel not in samples:
-        sam_sel = input("\nThe sample name is not valid, please enter a valid sample name, no default: ")
+        sam_sel = input("\nSsample name is not valid, please enter a valid sample name, no default: ")
 
 
 # PARAMETER FILES #####################################################################################################
@@ -367,7 +367,7 @@ def stat():
     with open("scripts/infor1." + scriptExt, "w") as out3:
         i = 0
         out3.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Quality statistical tests on R1 reads '
-                                                                     f'for the samples:\n'))
+                                                                     f'for samples:\n'))
         while i < len(samples):
             sample = samples[i]
             fastqr1 = fastqr1s[i]
@@ -380,7 +380,7 @@ def stat():
     with open("scripts/infor2." + scriptExt, "w") as out4:
         i = 0
         out4.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Quality statistical tests on R2 reads '
-                                                                     f'for the samples:\n'))
+                                                                     f'for samples:\n'))
         while i < len(samples):
             sample = samples[i]
             fastqr2 = fastqr2s[i]
@@ -404,7 +404,7 @@ def merging():
     """
     with open("scripts/merging." + scriptExt, "w") as out5:
         i = 0
-        out5.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Merging paired-end reads for the samples:\n'))
+        out5.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Merging paired-end reads for each sample:\n'))
         while i < len(samples):
             sample = samples[i]
             fastqr1 = fastqr1s[i]
@@ -431,7 +431,7 @@ def fastq2fas():
     with open("scripts/fqtofas." + scriptExt, "w") as out6:
         i = 0
         out6.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Converting FASTQ files into FASTA format '
-                                                                     f'for the samples:\n'))
+                                                                     f'for samples:\n'))
         while i < len(samples):
             sample = samples[i]
             fastqr1 = fastqr1s[i]
@@ -452,7 +452,7 @@ def derep_merged():
     Dereplicates in both strands and writes abundance annotation (frequency) to output.
     """
     with open("scripts/derep." + scriptExt, "w") as out7:
-        out7.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Dereplicating merged reads for the samples:\n'))
+        out7.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Dereplicating merged reads for each sample:\n'))
         for sample in samples:
             out7.write(main_stream_message(f' {sample}...') +
                        f"vsearch --derep_fulllength ../infiles/{sample}.fa --output ../infiles/{sample}_derep.fas "
@@ -469,7 +469,7 @@ def derep_r1():
     """
     with open("scripts/derep_r1." + scriptExt, "w") as out8:
         out8.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Dereplicating single-end reads '
-                                                                     f'for the samples:\n'))
+                                                                     f'for samples:\n'))
         for sample in samples:
             out8.write(main_stream_message(f' {sample}...') +
                        f"vsearch --derep_fulllength ../infiles/{sample}_R1.fa --output ../infiles/{sample}"
@@ -495,7 +495,7 @@ def cluster_merged():
     """
     with open("scripts/cluster." + scriptExt, "w") as out9:
         i = 0
-        out9.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'\nClustering merged reads for the samples:\n'))
+        out9.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Clustering merged reads for each sample:\n'))
         while i < len(samples):
             sample = samples[i]
             out9.write(main_stream_message(f' {sample}...') +
@@ -518,7 +518,7 @@ def cluster_r1():
     """
     with open("scripts/cluster_r1." + scriptExt, "w") as out10:
         i = 0
-        out10.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'\nClustering single-end reads for the samples:\n'))
+        out10.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Clustering single-end reads for each sample:\n'))
         while i < len(samples):
             sample = samples[i]
             out10.write(main_stream_message(f' {sample}...') +
@@ -539,7 +539,7 @@ def cluster_one_sample_1d():
     SS = selected sample
     """
     with open("scripts/cluster_one_sample_1d." + scriptExt, "w") as out1:
-        out1.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'\nClustering reads for your '
+        out1.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'\nClustering reads for '
                                                                      f'selected sample {sam_sel}:') +
                    f"vsearch --cluster_unoise ../infiles/{sam_sel}_derep.fas --sizein --centroids "
                    f"../infiles/{sam_sel}_cluster.fas --strand both --minsize {minsize_user} --sizeout "
@@ -561,7 +561,7 @@ def chimera_merged():
     """
     with open("scripts/chimera." + scriptExt, "w") as out11:
         out11.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Detecting and removing chimeras within '
-                                                                      f'merged reads for the samples:\n'))
+                                                                      f'merged reads of samples:\n'))
         for sample in samples:
             out11.write(main_stream_message(f' {sample}...') +
                         f"vsearch --uchime3_denovo ../infiles/{sample}_cluster.fas --nonchimeras "
@@ -578,7 +578,7 @@ def chimera_r1():
     """
     with open("scripts/chimera_r1." + scriptExt, "w") as out12:
         out12.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Detecting and removing chimeras within '
-                                                                      f'single-end reads for the samples:\n'))
+                                                                      f'single-end reads of samples:\n'))
         for sample in samples:
             out12.write(main_stream_message(f' {sample}...') +
                         f"vsearch --uchime3_denovo ../infiles/{sample}_cluster_R1.fas --nonchimeras"
@@ -596,7 +596,7 @@ def chimera_one_sample_1d():
     """
     with open("scripts/chimera_one_sample_1d." + scriptExt, "w") as out1:
         out1.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Detecting and removing chimeras for '
-                                                                     f'your selected sample {sam_sel}') +
+                                                                     f'selected sample {sam_sel}') +
                    f"vsearch --uchime3_denovo ../infiles/{sam_sel}_cluster.fas --nonchimeras ../infiles/{sam_sel}"
                    f"_cluster_OK.fas" + localErrorOnStopCmd + "\n"
                    f"vsearch --uchime3_denovo ../infiles/{sam_sel}_cluster_R1.fas --nonchimeras "
@@ -617,7 +617,7 @@ def runloc_merged():
     """
     with open("scripts/locimerged." + scriptExt, "w") as out13:
         out13.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Affiliating clusters to loci '
-                                                                      f'for merged reads for the samples:\n'))
+                                                                      f'for merged reads of samples:\n'))
         for loci1b in loci1s:
             for sample in samples:
                 out13.write(main_stream_message(f' {sample} VS {loci1b}...') +
@@ -639,7 +639,7 @@ def runloc_r1():
     """
     with open("scripts/locir1." + scriptExt, "w") as out14:
         out14.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Affiliating clusters to loci for '
-                                                                      f'single-end reads for the samples:\n'))
+                                                                      f'single-end reads of samples:\n'))
         for locus2b in loci2s:
             for sample in samples:
                 out14.write(main_stream_message(f' {sample} VS {locus2b}...') +
@@ -659,8 +659,8 @@ def runlocsel_merged():
     L1 = locus for amplicons based on paired-end reads
     """
     with open("scripts/loci_sel." + scriptExt, "w") as out15:
-        out15.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Affiliating clusters to your selected '
-                                                                      f'locus {loc_sel} for the samples:\n'))
+        out15.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Affiliating clusters to selected '
+                                                                      f'locus {loc_sel} for each sample:\n'))
         for sample in samples:
             out15.write(main_stream_message(f' {sample}...') +
                         f"vsearch --usearch_global ../infiles/{sample}_cluster_OK.fas --db ../refs/{loc_sel}.fas"
@@ -678,8 +678,8 @@ def runlocsel_r1():
     L2 = locus name for amplicons with no mergeable R1/R2
     """
     with open("scripts/locir1_sel." + scriptExt, "w") as out16:
-        out16.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Affiliating clusters to your selected '
-                                                                      f'locus {loc_sel} for the samples:\n'))
+        out16.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Affiliating clusters to selected '
+                                                                      f'locus {loc_sel} for each sample:\n'))
         for sample in samples:
             out16.write(main_stream_message(f' {sample}...') +
                         f"vsearch --usearch_global ../infiles/{sample}_cluster_R1_OK.fas --db ../refs/{loc_sel}.fas"
@@ -690,7 +690,7 @@ def runlocsel_r1():
 
 # DISTRIBUTION OF CLUSTERS FOR ONE SELECTED SAMPLE ####################################################################
 def runloc_one_sample_1d():
-    """ Searches similarities between denoised and non-chimera sequences and your local reference database (db)
+    """ Searches similarities between denoised and non-chimera sequences and local reference database (db)
     by the VSEARCH command, but only for a selected sample:
     vsearch --usearch_global ../infiles/SS_cluster_OK.fas --db ../refs/L1.fas --matched ../L1/SS_merged.fas
      --id real --strand both
@@ -705,7 +705,7 @@ def runloc_one_sample_1d():
     the option 'identity'
     """
     with open("scripts/loci_merged_1d." + scriptExt, "w") as out13:
-        out13.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Affiliating clusters of your selected '
+        out13.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Affiliating clusters of selected '
                                                                       f'sample {sam_sel} to the loci:\n'))
         for loci1b in loci1s:
             out13.write(main_stream_message(f' {loci1b}...') +
@@ -715,7 +715,7 @@ def runloc_one_sample_1d():
         out13.write(main_stream_message(f'\n\n'))
 
     with open("scripts/loci_R1_1d." + scriptExt, "w") as out14:
-        out14.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Affiliating clusters fo your selected '
+        out14.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Affiliating clusters fo selected '
                                                                       f'sample {sam_sel} to the loci:\n'))
         for locus2b in loci2s:
             out14.write(main_stream_message(f' {locus2b}...') +
@@ -734,8 +734,8 @@ def orient_merged():
     L1 = locus name for amplicons based on paired-end reads
     """
     with open("scripts/orientloc1." + scriptExt, "w") as out17:
-        out17.write(globalErrorOnStopCmd + "\n" + main_stream_message(f"Orientation of all merged reads in "
-                                                                      f"the same direction for the samples:\n"))
+        out17.write(globalErrorOnStopCmd + "\n" + main_stream_message(f"Orienting all merged reads in "
+                                                                      f"the same direction for each sample:\n"))
         for locus1b in loci1s:
             for sample in samples:
                 out17.write(main_stream_message(f' {sample} VS {locus1b}...') +
@@ -752,8 +752,8 @@ def orient_r1():
     L2 = locus name for amplicons with no mergeable R1/R2
     """
     with open("scripts/orientloc2." + scriptExt, "w") as out18:
-        out18.write(globalErrorOnStopCmd + "\n" + main_stream_message(f"Orientation of all single-end reads in "
-                                                                      f"the same direction for the samples:\n"))
+        out18.write(globalErrorOnStopCmd + "\n" + main_stream_message(f"Orienting all single-end reads in "
+                                                                      f"the same direction for each sample:\n"))
         for locus2b in loci2s:
             for sample in samples:
                 out18.write(main_stream_message(f' {sample} VS {locus2b}...') +
@@ -772,8 +772,8 @@ def orient_one_loc_1b():
     """
     with open("scripts/orient_merged_1b." + scriptExt, "w") as out17:
         out17.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Orientation of all merged reads in the same '
-                                                                      f'direction for your selected locus {loc_sel} '
-                                                                      f'and for the samples:\n'))
+                                                                      f'direction for selected locus {loc_sel} '
+                                                                      f'and for each sample:\n'))
         for sample in samples:
             out17.write(main_stream_message(f' {sample}...') +
                         f"vsearch --orient ../{loc_sel}/{sample}_merged.fas --db ../refs/{loc_sel}.fas --fastaout "
@@ -791,8 +791,8 @@ def orient_one_loc_1c():
     """
     with open("scripts/orient_R1_1c." + scriptExt, "w") as out18:
         out18.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Orientation of all single-end reads in the '
-                                                                      f'same direction for your selected locus '
-                                                                      f'{loc_sel} and for the samples:\n'))
+                                                                      f'same direction for selected locus '
+                                                                      f'{loc_sel} and for each sample:\n'))
         for sample in samples:
             out18.write(main_stream_message(f' {sample}...') +
                         f"vsearch --orient ../{loc_sel}/{sample}_R1.fas --db ../refs/{loc_sel}.fas --fastaout "
@@ -811,7 +811,7 @@ def orient_one_sample_1d():
     SS = selected sample
     """
     with open("scripts/orient_merged_1d." + scriptExt, "w") as out17:
-        out17.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Orientation of all clusters of your selected '
+        out17.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Orientation of all clusters of selected '
                                                                       f'sample {sam_sel} for the loci:\n'))
         for locus1b in loci1s:
             out17.write(main_stream_message(f' {locus1b}...') +
@@ -820,7 +820,7 @@ def orient_one_sample_1d():
         out17.write(main_stream_message(f'\n\n'))
 
     with open("scripts/orient_R1_1d." + scriptExt, "w") as out18:
-        out18.write(main_stream_message(f'Orientation of all clusters of your selected sample {sam_sel} for '
+        out18.write(main_stream_message(f'Orientation of all clusters of selected sample {sam_sel} for '
                                         f'the loci:\n'))
         for locus2b in loci2s:
             out18.write(main_stream_message(f' {locus2b}...') +
@@ -844,7 +844,7 @@ def runall_0():
             '        exit 1\n' +
             '    fi\n' +
             'done\n' +
-            end_log_redirect())
+            end_log_redirect('../infiles/results.log'))
         else:
             out19.write(start_log_redirect('../infiles/results.log') +
             '   $scriptArray = @("./infor1.' + scriptExt + '", "./infor2.' + scriptExt + '")\n' +
@@ -852,7 +852,7 @@ def runall_0():
             '        $script = $scriptArray[$i]\n' +
             '        & "$script" ; If ($LASTEXITCODE -gt 0) { "Error executing $script"; exit $LASTEXITCODE }\n' +
             '   }\n' +
-            end_log_redirect())
+            end_log_redirect('../infiles/results.log'))
 
     os.chdir('scripts')
     if not winOS:
@@ -878,7 +878,7 @@ def runall_1():
             '        exit 1\n' +
             '    fi\n' +
             'done\n' +
-            end_log_redirect())
+            end_log_redirect('../infiles/results.log'))
         else:
             out19.write(start_log_redirect('../infiles/results.log') +
             '   $scriptArray = @("./merging.' + scriptExt + '", "./fqtofas.' + scriptExt + '", "./derep.'
@@ -890,7 +890,7 @@ def runall_1():
             '        $script = $scriptArray[$i]\n' +
             '        & "$script" ; If ($LASTEXITCODE -gt 0) { "Error executing $script"; exit $LASTEXITCODE }\n' +
             '   }\n' +
-            end_log_redirect())
+            end_log_redirect('../infiles/results.log'))
 
 
     os.chdir('scripts')
@@ -913,7 +913,7 @@ def runall_1a():
                     "./locir1." + scriptExt + "\n"
                     "./orientloc1." + scriptExt + "\n"
                     "./orientloc2." + scriptExt + "\n"
-                    + end_log_redirect())
+                    + end_log_redirect('../infiles/res1a.log'))
     os.chdir('scripts')
     subprocess.run([shellCmd, "./runall1a." + scriptExt])
 
@@ -927,7 +927,7 @@ def runall_1b():
                     "./chimera." + scriptExt + "\n"
                     "./loci_sel." + scriptExt + "\n"
                     "./orient_merged_1b." + scriptExt + "\n"
-                    + end_log_redirect())
+                    + end_log_redirect('../infiles/res1b.log'))
     os.chdir('scripts')
     subprocess.run([shellCmd, "./runall1b." + scriptExt])
 
@@ -941,7 +941,7 @@ def runall_1c():
                     "./chimera_r1." + scriptExt + "\n"
                     "./locir1_sel." + scriptExt + "\n"
                     "./orient_R1_5." + scriptExt + "\n"
-                    + end_log_redirect())
+                    + end_log_redirect('../infiles/res1c.log'))
     os.chdir('scripts')
     subprocess.run([shellCmd, "./runall1c." + scriptExt])
 
@@ -957,7 +957,7 @@ def runall_1d():
                     "./loci_R1_1d." + scriptExt + "\n"
                     "./orient_merged_1d." + scriptExt + "\n"
                     "./orient_R1_1d." + scriptExt + "\n"
-                    + end_log_redirect())
+                    + end_log_redirect('../infiles/res1d.log'))
     os.chdir('scripts')
     subprocess.run([shellCmd, "./runall1d." + scriptExt])
 
@@ -968,7 +968,7 @@ def nb_clus():
     to the selected options 'minsize', minseqlength, alpha parameter' and 'identity'.
     """
     os.chdir("../")
-    print("\nDoing statistics on sequences: reads/merged/dereplicates/clusters -> file 'counts.txt',be patient!:\n")
+    print("Computing statistics on sequences: reads/merged/dereplicates/clusters -> file 'counts.txt':")
     with open(sample_user, "rt") as out32, open("infiles/counts.txt", "w") as out33:
         lines = out32.readlines()
         for line in lines:
@@ -1026,8 +1026,8 @@ def nb_seqbyloc_merged():
     to the selected options 'minsize', minseqlength, alpha parameter' and 'identity' for merged
     sequences (amplicons based on paired-end reads).
     """
-    print("\nDoing statistics on numbers of clusters by locus based on paired-end reads-> file "
-          "'nbseq_bylocmerged.txt':\n")
+    print("Computing statistics on numbers of clusters by locus based on paired-end reads -> file "
+          "'nbseq_bylocmerged.txt':")
     with open("infiles/nbseq_bylocmerged.txt", "w") as out34:
         for sample in samples:
             out34.write(f"\nThe sample {sample} showed:\n")
@@ -1046,8 +1046,8 @@ def nb_seqbyloc_r1():
     to the selected options 'minsize', minseqlength, alpha parameter' and 'identity' for R1
     sequences (amplicons with no mergeable R1/R2 reads).
     """
-    print("\nDoing statistics on numbers of clusters by locus based on single-end reads-> file "
-          "'nbseq_bylocR1.txt':\n")
+    print("Computing statistics on numbers of clusters by locus based on single-end reads -> file "
+          "'nbseq_bylocR1.txt':")
     with open("infiles/nbseq_bylocR1.txt", "w") as out34:
         for sample in samples:
             out34.write(f"\nThe sample {sample} showed:\n")
@@ -1062,7 +1062,7 @@ def nb_seqbyloc_r1():
 
 
 # TRIM PRIMERS AND SELECT SEQUENCES ACCORDING THRESHOLDS ##############################################################
-def trim_select_alls():
+def trim_select_all():
     """Select the final clusters of merged sequences by locus and by sample according to the size threshold retained
     for each of them.
     """
@@ -1072,14 +1072,14 @@ def trim_select_alls():
     while dirloc != "end":
         while Path(dirloc).is_dir() is False:
             dirloc = input("--------------------------------------------------------\n"
-                           "Your locus name is not valid. Please enter a valid name for the locus: ")
+                           "Locus name is not valid. Please enter a valid name: ")
         os.chdir(dirloc)
         trim_left = input(f"--------------------------------------------------------\n"
                           f"What is the number of bp of the left primer for {dirloc}? e.g. 20: ")
         trim_right = input(f"--------------------------------------------------------\n"
                            f"What is the number of bp of the right primer for {dirloc}? e.g. 22: ")
         ts = input(f"-----------------------------------------------\n"
-                   f"What THRESHOLD you want for this locus {dirloc}\n"
+                   f"What THRESHOLD do you want to use for this locus {dirloc}?\n"
                    f"e.g. for 5%, enter 0.05: ")
         for sample in samples:
             with open(sample + "_orient.fas", 'r') as filin, open("trim-select." + scriptExt, "w") as out20:
@@ -1090,18 +1090,18 @@ def trim_select_alls():
                     a = a + int(size)
                 b = int(a * float(ts) + 1)
                 out20.writelines(f"" + start_log_redirect('./' + sample + '.log') +
-                                 f"#Sum of sizes for {sample} = {a}'\n"
-                                 f"#Threshold set to: {ts}'\n"
-                                 f"#The sizes > {b} were conserved'\n"
-                                 f"#Trimming left and right primers:'\n"
-                                 f"#---------------------------------'\n"
-                                 f"vsearch --fastx_filter {sample}_orient.fas --fastq_stripleft {trim_left} "
-                                 f" --fastq_stripright {trim_right} --fastaout tmp --minsize {b}" + localErrorOnStopCmd + "\n"
-                                 f"#Dereplication after trimming:'\n"
-                                 f"#---------------------------------'\n"
-                                 f"vsearch --derep_fulllength ./tmp --output {sample}_select.fas --sizein --sizeout"
+                                 f" #Sum of sizes for {sample} = {a}'\n"
+                                 f" #Threshold set to: {ts}'\n"
+                                 f" #The sizes > {b} were conserved'\n"
+                                 f" #Trimming left and right primers:'\n"
+                                 f" #---------------------------------'\n"
+                                 f" vsearch --fastx_filter {sample}_orient.fas --fastq_stripleft {trim_left} "
+                                 f"  --fastq_stripright {trim_right} --fastaout tmp --minsize {b}" + localErrorOnStopCmd + "\n"
+                                 f" #Dereplication after trimming:'\n"
+                                 f" #---------------------------------'\n"
+                                 f" vsearch --derep_fulllength ./tmp --output {sample}_select.fas --sizein --sizeout"
                                  + localErrorOnStopCmd + "\n"
-                                 f"" + end_log_redirect())
+                                 f"" + end_log_redirect('./' + sample + '.log'))
             sys.stdout.write("----------------------")
             sys.stdout.write(f"\nSum of sizes for {sample} = {a}")
             sys.stdout.write(f"\nThe sizes > {b} were conserved")
@@ -1116,7 +1116,7 @@ def trim_select_alls():
                        "Enter the NEW locus name or if you are done enter: 'end': ")
 
 
-def trim_select_alls_r1():
+def trim_select_all_r1():
     """Select the final clusters of merged sequences by locus and by sample according to the size threshold retained
     for each of them.
     """
@@ -1126,7 +1126,7 @@ def trim_select_alls_r1():
     while dirloc != "end":
         while Path(dirloc).is_dir() is False:
             dirloc = input("--------------------------------------------------------\n"
-                           "Your locus name is not valid. Please enter a valid name for the locus: ")
+                           "Locus name is not valid. Please enter a valid name: ")
         os.chdir(dirloc)
         trim_left = input(f"--------------------------------------------------------\n"
                           f"What is the number of bp of the left primer for {dirloc}? e.g. 20: ")
@@ -1134,7 +1134,7 @@ def trim_select_alls_r1():
                            f"What is the number of nucleotides to trim at the right of the "
                            f"fragment {dirloc}? e.g. 5: ")
         ts = input(f"-----------------------------------------------\n"
-                   f"What THRESHOLD you want for this locus {dirloc}\n"
+                   f"What THRESHOLD do you want to use for this locus {dirloc}?\n"
                    f"e.g. for 5%, enter 0.05: ")
         for sample in samples:
             with open(sample + "_R1_orient.fas", 'r') as filin, open("trim-select." + scriptExt, "w") as out20:
@@ -1144,20 +1144,20 @@ def trim_select_alls_r1():
                     size = re.search('size=(.+?)$', target).group(1)
                     a = a + int(size)
                 b = int(a * float(ts) + 1)
-                out20.writelines(f"" + start_log_redirect('./{sample}.log') +
-                                 f"#Sum of sizes for {sample} = {a}'\n"
-                                 f"#Threshold set to: {ts}'\n"
-                                 f"#The sizes > {b} were conserved'\n"
-                                 f"#Trimming left and right primers:'\n"
-                                 f"#---------------------------------'\n"
-                                 f"vsearch --fastx_filter {sample}_R1_orient.fas --fastq_stripleft {trim_left} "
-                                 f" --fastq_stripright {trim_right} --fastaout tmp --minsize {b}"
-                                 + localErrorOnStopCmd + "\n"
-                                 f"#Dereplication after trimming:'\n"
-                                 f"#---------------------------------'\n"
-                                 f"vsearch --derep_fulllength ./tmp --output {sample}_R1_select.fas --sizein "
-                                 f"--sizeout" + localErrorOnStopCmd + "\n"
-                                 f"" + end_log_redirect())
+                out20.writelines(f"" + start_log_redirect('./' + sample + '.log') +
+                                 f" #Sum of sizes for {sample} = {a}'\n"
+                                 f" #Threshold set to: {ts}'\n"
+                                 f" #The sizes > {b} were conserved'\n"
+                                 f" #Trimming left and right primers:'\n"
+                                 f" #---------------------------------'\n"
+                                 f" vsearch --fastx_filter {sample}_R1_orient.fas --fastq_stripleft {trim_left} "
+                                 f"  --fastq_stripright {trim_right} --fastaout tmp --minsize {b}"
+                                 +  localErrorOnStopCmd + "\n"
+                                 f" #Dereplication after trimming:'\n"
+                                 f" #---------------------------------'\n"
+                                 f" vsearch --derep_fulllength ./tmp --output {sample}_R1_select.fas --sizein "
+                                 f" --sizeout" + localErrorOnStopCmd + "\n"
+                                 f"" + end_log_redirect('./' + sample + '.log'))
             sys.stdout.write("----------------------")
             sys.stdout.write(f"\nSum of sizes for {sample}= {a}")
             sys.stdout.write(f"\nThe sizes > {b} were conserved")
@@ -1182,7 +1182,7 @@ def trim_select():
     while dirloc != "end":
         while Path(dirloc).is_dir() is False:
             dirloc = input("--------------------------------------------------------\n"
-                           "Your locus name is not valid. Please enter a valid name for the locus: ")
+                           "Locus name is not valid. Please enter a valid name: ")
         os.chdir(dirloc)
         trim_left = input(f"--------------------------------------------------------\n"
                           f"What is the number of bp of the left primer for {dirloc}? e.g. 20: ")
@@ -1194,7 +1194,7 @@ def trim_select():
         while orient != "end":
             while os.path.isfile(orient + "_orient.fas") is False:
                 orient = input(f"--------------------------------------------------------\n"
-                               f"Your sample name '{orient}' is not valid, please enter a valid name: ")
+                               f"Sample name '{orient}' is not valid, please enter a valid name: ")
             ts = input(f"--------------------------------------------------------\n"
                        f"What THRESHOLD you want for this sample {orient} of locus {dirloc}\n"
                        f"e.g. for 5%, enter 0.05: ")
@@ -1206,17 +1206,17 @@ def trim_select():
                     a = a + int(size)
                 b = int(a * float(ts) + 1)
                 out20.writelines(f'' + start_log_redirect('./' + orient + '.log') +
-                                 f'#Sum of sizes for {orient} = {a}\n'
-                                 f'#Threshold set to: {ts}\n'
-                                 f'#The sizes > {b} were conserved\n'
-                                 f'#Trimming left and right primers:\n'
-                                 f'#---------------------------------\n'
-                                 f'vsearch --fastx_filter {orient}_orient.fas --fastq_stripleft {trim_left} '
-                                 f' --fastq_stripright {trim_right} --fastaout tmp --minsize {b}\n'
-                                 f'#Dereplication after trimming:\n'
-                                 f'#---------------------------------\n'
-                                 f'vsearch --derep_fulllength ./tmp --output {orient}_select.fas --sizein --sizeout\n'
-                                 f'' + end_log_redirect())
+                                 f' #Sum of sizes for {orient} = {a}\n'
+                                 f' #Threshold set to: {ts}\n'
+                                 f' #The sizes > {b} were conserved\n'
+                                 f' #Trimming left and right primers:\n'
+                                 f' #---------------------------------\n'
+                                 f' vsearch --fastx_filter {orient}_orient.fas --fastq_stripleft {trim_left} '
+                                 f'  --fastq_stripright {trim_right} --fastaout tmp --minsize {b}\n'
+                                 f' #Dereplication after trimming:\n'
+                                 f' #---------------------------------\n'
+                                 f' vsearch --derep_fulllength ./tmp --output {orient}_select.fas --sizein --sizeout\n'
+                                 f'' + end_log_redirect('./' + orient + '.log'))
             sys.stdout.write("----------------------")
             sys.stdout.write(f"\nSum of sizes for {orient} = {a}")
             sys.stdout.write(f"\nThe sizes > {b} were conserved")
@@ -1244,7 +1244,7 @@ def trim_select_r1():
     while dirloc != "end":
         while Path(dirloc).is_dir() is False:
             dirloc = input("--------------------------------------------------------\n"
-                           "Your locus name is not valid. Please enter a valid name for the locus: ")
+                           "Locus name is not valid. Please enter a valid name: ")
         os.chdir(dirloc)
         trim_left = input(f"--------------------------------------------------------\n"
                           f"What is the number of bp of the left primer for {dirloc}? e.g. 20: ")
@@ -1257,7 +1257,7 @@ def trim_select_r1():
         while orient != "end":
             while os.path.isfile(orient + "_R1_orient.fas") is False:
                 orient = input(f"--------------------------------------------------------\n"
-                               f"Your sample name '{orient}' is not valid, please enter a valid name: ")
+                               f"Sample name '{orient}' is not valid, please enter a valid name: ")
             ts = input(f"--------------------------------------------------------\n"
                        f"What THRESHOLD you want for this sample {orient} of locus {dirloc}\n"
                        f"e.g. for 5%, enter 0.05: ")
@@ -1269,18 +1269,18 @@ def trim_select_r1():
                     a = a + int(size)
                 b = int(a * float(ts) + 1)
                 out20.writelines(f'' + start_log_redirect('./' + orient + '.log') +
-                                 f'#Sum of sizes for {orient} = {a}\n'
-                                 f'#Threshold set to: {ts}\n'
-                                 f'#The sizes > {b} were conserved\n'
-                                 f'#Trimming left and right primers:\n'
-                                 f'#---------------------------------\n'
-                                 f'vsearch --fastx_filter {orient}_R1_orient.fas --fastq_stripleft {trim_left} '
-                                 f' --fastq_stripright {trim_right} --fastaout tmp --minsize {b}\n'
-                                 f'#Dereplication after trimming:\n'
-                                 f'#---------------------------------\n'
-                                 f'vsearch --derep_fulllength ./tmp --output {orient}_R1_select.fas --sizein '
-                                 f'--sizeout\n'
-                                 f'' + end_log_redirect())
+                                 f' #Sum of sizes for {orient} = {a}\n'
+                                 f' #Threshold set to: {ts}\n'
+                                 f' #The sizes > {b} were conserved\n'
+                                 f' #Trimming left and right primers:\n'
+                                 f' #---------------------------------\n'
+                                 f' vsearch --fastx_filter {orient}_R1_orient.fas --fastq_stripleft {trim_left} '
+                                 f'  --fastq_stripright {trim_right} --fastaout tmp --minsize {b}\n'
+                                 f' #Dereplication after trimming:\n'
+                                 f' #---------------------------------\n'
+                                 f' vsearch --derep_fulllength ./tmp --output {orient}_R1_select.fas --sizein '
+                                 f' --sizeout\n'
+                                 f'' + end_log_redirect('./' + orient + '.log'))
             sys.stdout.write("----------------------")
             sys.stdout.write(f"\nSum of sizes for {orient} = {a}")
             sys.stdout.write(f"\nThe sizes > {b} were conserved")
@@ -1306,7 +1306,7 @@ def concat():
                     "\nFor which LOCUS do you want to cluster all the sample sequences?: ")
     while loc2cat != "end":
         while Path(loc2cat).is_dir() is False:
-            loc2cat = input("\nYour locus name is not valid. Please enter a valid name for the locus: ")
+            loc2cat = input("\nLocus name is not valid. Please enter a valid name: ")
         os.chdir(loc2cat)
         files2cat = glob.glob('*_select.fas')
         with open("./" + loc2cat + "_allseq_select.fasta", "w") as out:
@@ -1319,7 +1319,7 @@ def concat():
                         "\nFor which NEW LOCUS do you want to cluster all the sample sequences?\n"
                         "Enter the NEW locus name or 'end' if you terminated: ")
     else:
-        sys.stdout.write("\n\n**** YOUR CLUSTERING SESSION FOR PHYLOGENETIC ANALYZES is COMPLETE ****\n\n")
+        sys.stdout.write("\n\n**** CLUSTERING SESSION FOR PHYLOGENETIC ANALYZES is COMPLETE ****\n\n")
         exit()
 
 
@@ -1331,7 +1331,7 @@ if __name__ == "__main__":
           "STEPS 1, 2 and 3 of the MAIN MENU are mandatory for a complete analysis while others are optional\n"
           "#################################################################################################")
     rmenu = input("\n************************************** MAIN MENU *************************************\n\n"
-                  "0  -> Initial and optional quality checking of your fastq files (slow - be patient!)\n"
+                  "0  -> Initial and optional quality checking of fastq files (slow - be patient!)\n"
                   "1  -> NEW COMPLETE ANALYSIS\n"
                   "1a -> Re-analyze all loci, from the clustering step, modifying parameters\n"
                   "1b -> Re-analyze only one locus of paired-end amplicon (merged reads), modifying parameters\n"
@@ -1419,7 +1419,7 @@ if __name__ == "__main__":
         nb_clus()
         nb_seqbyloc_merged()
         nb_seqbyloc_r1()
-        sys.stdout.write("\n\n**** YOUR RUN OPTION 1a IS COMPLETE ****\n\n")
+        sys.stdout.write("\n\n**** RUN OPTION 1a IS COMPLETE ****\n\n")
 
     # Re-analyze only one locus of paired-end amplicon (merged reads), modifying parameters
     if rmenu == "1b":
@@ -1435,7 +1435,7 @@ if __name__ == "__main__":
         runlocsel_merged()
         orient_one_loc_1b()
         runall_1b()
-        sys.stdout.write("\n\n**** YOUR RUN OPTION 1b IS COMPLETE ****\n\n")
+        sys.stdout.write("\n\n**** RUN OPTION 1b IS COMPLETE ****\n\n")
 
     # Re-analyze only one locus of single-end amplicon (R1 only), modifying parameters
     if rmenu == "1c":
@@ -1451,7 +1451,7 @@ if __name__ == "__main__":
         runlocsel_r1()
         orient_one_loc_1c()
         runall_1c()
-        sys.stdout.write("\n\n**** YOUR RUN OPTION 1c IS COMPLETE ****\n\n")
+        sys.stdout.write("\n\n**** RUN OPTION 1c IS COMPLETE ****\n\n")
 
     # Re-analyse only one sample, modifying parameters
     if rmenu == "1d":
@@ -1467,7 +1467,7 @@ if __name__ == "__main__":
         runloc_one_sample_1d()
         orient_one_sample_1d()
         runall_1d()
-        sys.stdout.write("\n\n**** YOUR RUN OPTION 1d IS COMPLETE ****\n\n")
+        sys.stdout.write("\n\n**** RUN OPTION 1d IS COMPLETE ****\n\n")
 
     # SELECTION OF MINIMUM SIZES ACCORDING TO THRESHOLDS SET BY THE USER
     if rmenu == '2':
@@ -1490,25 +1490,25 @@ if __name__ == "__main__":
                         " ************************************** Type 1, 2, 3, 4 or end: ")
         if submenu == "1":
             prev_param()
-            trim_select_alls()
-            sys.stdout.write("\n\n**** YOUR SIZE SELECTION for loci based on PAIRED-END reads is COMPLETE ****\n\n")
+            trim_select_all()
+            sys.stdout.write("\n\n**** SIZE SELECTION for loci based on PAIRED-END reads is COMPLETE ****\n\n")
 
         if submenu == "2":
             prev_param()
-            trim_select_alls_r1()
-            sys.stdout.write("\n\n**** YOUR SIZE SELECTION for loci base on SINGLE-END reads (R1 only) "
+            trim_select_all_r1()
+            sys.stdout.write("\n\n**** SIZE SELECTION for loci base on SINGLE-END reads (R1 only) "
                              "is COMPLETE ****\n\n")
 
         if submenu == "3":
             prev_param()
             trim_select()
-            sys.stdout.write("\n\n**** YOUR SIZE SELECTION by sample and by loci based on PAIRED-END is "
+            sys.stdout.write("\n\n**** SIZE SELECTION by sample and by loci based on PAIRED-END is "
                              "COMPLETE ****\n\n")
 
         if submenu == "4":
             prev_param()
             trim_select_r1()
-            sys.stdout.write("\n\n**** YOUR SIZE SELECTION by sample and by loci based on SINGLE-END is "
+            sys.stdout.write("\n\n**** SIZE SELECTION by sample and by loci based on SINGLE-END is "
                              "COMPLETE ****\n\n")
 
         if submenu == "end":
