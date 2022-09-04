@@ -37,6 +37,7 @@ import platform
 import subprocess
 import re
 import glob
+import numpy
 
 
 # BEFORE ANYTHING ELSE: MAKE SURE VSEARCH IS INSTALLED ################################################################
@@ -136,10 +137,10 @@ def folder_refs():
 def input_dir_fastq():
     global dir_fastq
     dir_fastq = input("\nEnter the full path to the folder where fastq files are located"
-                      "\ne.g. C:/Users/barnabe/Documents/NGSdata/run190823"
-                      "\ndefault = <current_directory>/fastq: ")
+                      "\n(e.g. C:/Users/barnabe/Documents/NGSdata/run190823)"
+                      "\ndefault = current_directory/fastq: ")
     while Path(dir_fastq).is_dir() is False and dir_fastq != '':
-        dir_fastq = input("\nPath is not valid. Please enter a path\n"
+        dir_fastq = input("\n-->ERROR: path is not valid. Please enter a valid path\n"
                           "default = <current_directory>/fastq: ")
     else:
         dir_fastq = current_dir + "/fastq"
@@ -149,7 +150,7 @@ def input_fastqr1_user():
     global fastqr1_user, fastqr1s
     fastqr1_user = input("\nEnter R1 fastq file name, default = fastqR1.txt: ")
     while os.path.isfile(fastqr1_user) is False and fastqr1_user != '':
-        fastqr1_user = input("\nFile name is not valid, please enter a valid file name\n"
+        fastqr1_user = input("\n-->ERROR: file name is not valid, please enter a valid file name\n"
                              "default = fastqR1.txt: ")
     else:
         fastqr1_user = 'fastqR1.txt'
@@ -161,7 +162,7 @@ def input_fastqr2_user():
     global fastqr2_user, fastqr2s
     fastqr2_user = input("\nEnter R2 fastq file name, default = fastqR2.txt: ")
     while os.path.isfile(fastqr2_user) is False and fastqr2_user != '':
-        fastqr2_user = input("\nFile name is not valid, please enter a valid file name\n"
+        fastqr2_user = input("\n-->ERROR: file name is not valid, please enter a valid file name\n"
                              "default = fastqR2.txt: ")
     else:
         fastqr2_user = 'fastqR2.txt'
@@ -174,7 +175,8 @@ def input_loci1_user():
     loci1_user = input("\nEnter the name of the file containing loci based on paired-end reads\n"
                        "default = locus1.txt: ")
     while os.path.isfile(loci1_user) is False and loci1_user != '':
-        loci1_user = input("\nFile name is not valid, please enter a valid file name: ")
+        loci1_user = input("\n-->ERROR: file name is not valid, please enter a valid file name\n"
+                           "default = locus1.txt: ")
     else:
         loci1_user = 'locus1.txt'
     with open(loci1_user, "r") as out3:
@@ -183,10 +185,11 @@ def input_loci1_user():
 
 def input_loci2_user():
     global loci2_user, loci2s
-    loci2_user = input("\nEnter the name of the file containing loci based on single-end reads only (R1),\n"
+    loci2_user = input("\nEnter the name of the file containing loci based on single-end reads only (R1)\n"
                        "default = locus2.txt: ")
     while os.path.isfile(loci2_user) is False and loci2_user != '':
-        loci2_user = input("\nFile name is not valid, please enter a valid file name: ")
+        loci2_user = input("\n-->ERROR: file name is not valid, please enter a valid file name\n"
+                           "default = locus2.txt: ")
     else:
         loci2_user = 'locus2.txt'
 
@@ -196,9 +199,10 @@ def input_loci2_user():
 
 def input_sample_user():
     global sample_user
-    sample_user = input("\nEnter the name of the file containing sample names, default = samples.txt: ")
+    sample_user = input("\nEnter the name of the file containing sample names\n"
+                        "default = samples.txt: ")
     while os.path.isfile(sample_user) is False and sample_user != '':
-        sample_user = input("\nFile name is not valid, please enter a valid file name\n"
+        sample_user = input("\n-->ERROR: file name is not valid, please enter a valid file name\n"
                             "default = samples.txt: ")
     else:
         sample_user = 'samples.txt'
@@ -212,7 +216,8 @@ def input_minsize_user():
     minsize_user = input("\nEnter the minsize option value for clusters,\n"
                          "i.e. the minimum sequence abundance of the retained clusters, default = 8: ")
     while minsize_user.isnumeric() is False and minsize_user != '':
-        minsize_user = input("\nMinsize option must be an integer, e.g. 2, 10, 50... default = 8: : ")
+        minsize_user = input("\n-->ERROR: minsize option must be an integer\n"
+                             "enter an integer (e.g. 2, 10, 50...), default = 8: : ")
     if minsize_user == '':
         minsize_user = '8'
 
@@ -221,7 +226,8 @@ def input_minseqlength():
     global minseqlength
     minseqlength = input("\nEnter the minimum length of sequences to keep for any locus, default = 100: ")
     while minseqlength.isnumeric() is False and minseqlength != '':
-        minseqlength = input("\nMinimum length must be an integer, e.g. 100, 150, 180... default = 100: ")
+        minseqlength = input("\n-->ERROR: minimum length must be an integer\n"
+                             "enter an integer (e.g. 100, 150, 180...), default = 100: ")
     if minseqlength == '':
         minseqlength = '100'
 
@@ -230,7 +236,8 @@ def input_alpha():
     global alpha
     alpha = input("\nEnter alpha parameter for the clustering, default = 2: ")
     while alpha.isnumeric() is False and alpha != '':
-        alpha = input("\nAlpha parameter must be an integer, e.g. 0, 1, 2, 3... default = 2: ")
+        alpha = input("\n-->ERROR: alpha parameter must be an integer\n"
+                      "enter an integer (e.g. 0, 1, 2, 3...), default = 2: ")
     if alpha == '':
         alpha = '2'
 
@@ -238,32 +245,38 @@ def input_alpha():
 def input_identity():
     global identity
     identity = input("\nEnter identity parameter to BLAST the clusters against references, default = 0.7: ")
-    while identity > '1' and identity != '':
-        identity = input("\nIdentity parameter must be a decimal < 1, e.g. 0.85, 0.75, 0.95... default = 0.7: ")
+    while identity not in list_float_0_1:
+        identity = input("\n-->ERROR: identity parameter must be a decimal < 1\n"
+                         "enter a decimal (e.g. 0.85, 0.75, 0.95...), default = 0.7: ")
     if identity == '':
         identity = '0.7'
 
 
 def input_loc_sel_merged():
     global loc_sel
-    loc_sel = input("\nEnter the name of the locus analysed by paired-end reads you want to rerun, no default: ")
+    loc_sel = input("\nEnter the name of the locus analysed by paired-end reads you want to rerun\n"
+                    f"among {loci1s}, no default: ")
     while loc_sel not in loci1s:
-        loc_sel = input("\nLocus name is not valid. Please enter the valid name of the locus: ")
+        loc_sel = input("\n-->ERROR: locus name is not valid, please enter valid name of locus\n"
+                        f"among {loci1s}: ")
 
 
 def input_loc_sel_r1():
     global loc_sel
-    loc_sel = input("\nEnter the name of the locus analysed by only single-end (R1) reads "
-                    "you want to rerun, no default: ")
+    loc_sel = input("\nEnter the name of the locus analysed by only single-end (R1) reads\n"
+                    f"among {loci2s} you want to rerun, no default: ")
     while loc_sel not in loci2s:
-        loc_sel = input("\nLocus name is not valid. Please enter the valid name of the locus: ")
+        loc_sel = input("\n-->ERROR: locus name is not valid, please enter valid name of locus\n"
+                        f"among {loci2s}: ")
 
 
 def input_sam_sel():
     global sam_sel, samples
-    sam_sel = input("\nEnter the sample name you want to rerun, no default: ")
+    sam_sel = input(f"\nEnter the sample name you want to rerun\n"
+                    f"among {samples}, no default: ")
     while sam_sel not in samples:
-        sam_sel = input("\nSsample name is not valid, please enter a valid sample name, no default: ")
+        sam_sel = input("\n-->ERROR: sample name is not valid, please enter a valid sample name\n"
+                        f"among {samples}, no default: ")
 
 
 # PARAMETER FILES #####################################################################################################
@@ -274,8 +287,7 @@ def param_1():
         outfile.writelines(f"Run option 1: {date}\n{dir_fastq}\n{fastqr1_user}\n{fastqr2_user}\n{loci1_user}\n"
                            f"{loci2_user}\n{sample_user}\n{minsize_user}\n{minseqlength}\n{alpha}\n{identity}\n"
                            f"Samples used = {samples}\nLoci paired-end used = {loci1s}\nLoci single-end (R1) "
-                           f"used = {loci2s}\n"
-                           f"-------------------------------------------------------------\n")
+                           f"used = {loci2s}\n\n")
 
 
 def prev_param():
@@ -324,8 +336,7 @@ def param_1a():
     with open("my_parameters_option_1.txt", "a") as outfile:
         outfile.writelines(f"Run option 1a: {date}\n{dir_fastq}\n{fastqr1_user}\n{fastqr2_user}\n"
                            f"{loci1_user}\n{loci2_user}\n{sample_user}\n{minsize_user}\n{minseqlength}"
-                           f"\n{alpha}\n{identity}\n"
-                           f"-------------------------------------------------------------\n")
+                           f"\n{alpha}\n{identity}\n\n")
 
 
 def param_1b():
@@ -333,8 +344,7 @@ def param_1b():
     """
     with open("my_parameters_option_1.txt", "a") as outfile:
         outfile.writelines(f"Run option 1b: {date}\n{dir_fastq}\n{fastqr1_user}\n{fastqr2_user}\n{loc_sel}\n"
-                           f"{sample_user}\n{minsize_user}\n{minseqlength}\n{alpha}\n{identity}\n"
-                           f"-------------------------------------------------------------\n")
+                           f"{sample_user}\n{minsize_user}\n{minseqlength}\n{alpha}\n{identity}\n\n")
 
 
 def param_1c():
@@ -342,8 +352,7 @@ def param_1c():
     """
     with open("my_parameters_option_1.txt", "a") as outfile:
         outfile.writelines(f"Run option 1c: {date}\n{dir_fastq}\n{fastqr1_user}\n{fastqr2_user}\n{loc_sel}\n"
-                           f"{sample_user}\n{minsize_user}\n{minseqlength}\n{alpha}\n{identity}\n"
-                           f"-------------------------------------------------------------\n")
+                           f"{sample_user}\n{minsize_user}\n{minseqlength}\n{alpha}\n{identity}\n\n")
 
 
 def param_1d():
@@ -351,8 +360,7 @@ def param_1d():
     """
     with open("my_parameters_option_1.txt", "a") as outfile:
         outfile.writelines(f"Run option 1d: {date}\n{dir_fastq}\n{fastqr1_user}\n{fastqr2_user}\n{sam_sel}\n"
-                           f"{minsize_user}\n{minseqlength}\n{alpha}\n{identity}\n"
-                           f"-------------------------------------------------------------\n")
+                           f"{minsize_user}\n{minseqlength}\n{alpha}\n{identity}\n\n")
 
 
 # STATISTICS ON FASTQ FILES ###########################################################################################
@@ -518,7 +526,8 @@ def cluster_r1():
     """
     with open("scripts/cluster_r1." + scriptExt, "w") as out10:
         i = 0
-        out10.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Clustering single-end reads for each sample:\n'))
+        out10.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Clustering single-end reads '
+                                                                      f'for each sample:\n'))
         while i < len(samples):
             sample = samples[i]
             out10.write(main_stream_message(f' {sample}...') +
@@ -665,7 +674,7 @@ def runlocsel_merged():
             out15.write(main_stream_message(f' {sample}...') +
                         f"vsearch --usearch_global ../infiles/{sample}_cluster_OK.fas --db ../refs/{loc_sel}.fas"
                         f" --matched ../{loc_sel}/{sample}_merged.fas --id {identity} --strand both"
-            + localErrorOnStopCmd + "\n")
+                        + localErrorOnStopCmd + "\n")
         out15.write(main_stream_message(f'\n\n'))
 
 
@@ -836,14 +845,14 @@ def runall_0():
     with open("scripts/runall0." + scriptExt, "w") as out19:
         if not winOS:
             out19.write(start_log_redirect('../infiles/results.log') +
-            "scriptArray=('./infor1." + scriptExt + "' './infor2." + scriptExt + "')\n" +
-            'for script in "${scriptArray[@]}"\n' +
-            '    do\n' +
-            '    if ! ${script}; then\n' +
-            '        printf "Error executing ${script}\\n\\n" >&3\n' +
-            '        exit 1\n' +
-            '    fi\n' +
-            'done\n' +
+                                        "scriptArray=('./infor1." + scriptExt + "' './infor2." + scriptExt + "')\n" +
+                                        'for script in "${scriptArray[@]}"\n' +
+                                        '    do\n' +
+                                        '    if ! ${script}; then\n' +
+                                        '        printf "Error executing ${script}\\n\\n" >&3\n' +
+                                        '        exit 1\n' +
+                                        '    fi\n' +
+                                        'done\n' +
             end_log_redirect('../infiles/results.log'))
         else:
             out19.write(start_log_redirect('../infiles/results.log') +
@@ -870,7 +879,10 @@ def runall_1():
         if not winOS:
             out19.write(start_log_redirect('../infiles/results.log') +
             "scriptArray=('./merging." + scriptExt + "' './fqtofas." + scriptExt + "' './derep."
-                        + scriptExt + "' './derep_r1." + scriptExt + "' './cluster." + scriptExt + "' './cluster_r1." + scriptExt + "' './chimera." + scriptExt + "' './chimera_r1." + scriptExt + "' './locimerged." + scriptExt + "' './locir1." + scriptExt + "' './orientloc1." + scriptExt + "' './orientloc2." + scriptExt + "')\n" +
+                        + scriptExt + "' './derep_r1." + scriptExt + "' './cluster." + scriptExt + "' './cluster_r1."
+                        + scriptExt + "' './chimera." + scriptExt + "' './chimera_r1." + scriptExt + "' './locimerged."
+                        + scriptExt + "' './locir1." + scriptExt + "' './orientloc1." + scriptExt + "' './orientloc2."
+                        + scriptExt + "')\n" +
             'for script in "${scriptArray[@]}"\n' +
             '    do\n' +
             '    if ! ${script}; then\n' +
@@ -883,15 +895,16 @@ def runall_1():
             out19.write(start_log_redirect('../infiles/results.log') +
             '   $scriptArray = @("./merging.' + scriptExt + '", "./fqtofas.' + scriptExt + '", "./derep.'
                         + scriptExt + '", "./derep_r1.' + scriptExt + '", "./cluster.' + scriptExt + '", "./cluster_r1.'
-                        + scriptExt + '", "./chimera.' + scriptExt + '", "./chimera_r1.' + scriptExt + '", "./locimerged.'
-                        + scriptExt + '", "./locir1.' + scriptExt + '", "./orientloc1.' + scriptExt + '", "./orientloc2.'
+                        + scriptExt + '", "./chimera.' + scriptExt + '", "./chimera_r1.'
+                        + scriptExt + '", "./locimerged.'
+                        + scriptExt + '", "./locir1.' + scriptExt + '", "./orientloc1.'
+                        + scriptExt + '", "./orientloc2.'
                         + scriptExt + '")\n' +
             '   For ($i=0; $i -lt $scriptArray.Length; $i++) {\n' +
             '        $script = $scriptArray[$i]\n' +
             '        & "$script" ; If ($LASTEXITCODE -gt 0) { "Error executing $script"; exit $LASTEXITCODE }\n' +
             '   }\n' +
             end_log_redirect('../infiles/results.log'))
-
 
     os.chdir('scripts')
     if not winOS:
@@ -962,125 +975,224 @@ def runall_1d():
     subprocess.run([shellCmd, "./runall1d." + scriptExt])
 
 
-# ANALYSIS OF NUMBER OF READS CLUSTERS BY LOCI ETC..###################################################################
-def nb_clus():
+# GLOBAL STATISTICS ACCORDING THE OPTIONS ###########################################################################
+def stats_1_1a():
     """Calculates the number of resulting sequences (reads, merged, dereplicates and clusters) according
     to the selected options 'minsize', minseqlength, alpha parameter' and 'identity'.
     """
     os.chdir("../")
-    print("Computing statistics on sequences: reads/merged/dereplicates/clusters -> file 'counts.txt':")
-    with open(sample_user, "rt") as out32, open("infiles/counts.txt", "w") as out33:
-        lines = out32.readlines()
-        for line in lines:
-            line = line.rstrip()
+    print("Computing main statistics on sequences: reads/merged/dereplicates/clusters\n"
+          "-------> infiles/Stats_options_1_1a.txt:")
+    with open("infiles/Stats_option_1_1a.txt", "w") as outfile:
+        outfile.write("With option 1 or 1a, parameters set to:\n\n"
+                      f"Directory = {current_dir}\n"
+                      f"Fastq R1 file name = {fastqr1_user}\n"
+                      f"Fastq R2 file name = {fastqr2_user}\n"
+                      f"Paired-end based loci = {loci1s}\n"
+                      f"Single-end based (R1) loci = {loci2s}\n"
+                      f"Samples = {samples}\n"
+                      f"Minimum abundance for clusters = {minsize_user}\n"
+                      f"Minimum length for sequences = {minseqlength}\n"
+                      f"Alpha clustering parameter = {alpha}\n"
+                      f"Identity for allocating clusters = {identity}\n\n")
+        for sample in samples:
+            sample = sample.rstrip()
             # Nb READS Calculated on R1.fa
-            r1fa = open("infiles/" + line + "_R1.fa", "rt")
+            r1fa = open("infiles/" + sample + "_R1.fa", "rt")
             reads = r1fa.read()
             nb_reads = reads.count(">")
             # Nb merged .fa
-            merged = open("infiles/" + line + ".fa", "rt")
+            merged = open("infiles/" + sample + ".fa", "rt")
             mgd = merged.read()
             nb_merged = mgd.count(">")
             percent_merging = (nb_merged/nb_reads)*100
             percent = '{:.2f}%'.format(percent_merging)
             # Number of dereplicated sequences calculated on _derep.fas
-            derepfas = open("infiles/" + line + "_derep.fas", "rt")
+            derepfas = open("infiles/" + sample + "_derep.fas", "rt")
             df = derepfas.read()
             nb_derpm = df.count("sample")
             # Nb clustermerged Calculated on _cluster.fas
-            clusmerged = open("infiles/" + line + "_cluster.fas", "rt")
+            clusmerged = open("infiles/" + sample + "_cluster.fas", "rt")
             clusmer = clusmerged.read()
             nb_clusm = clusmer.count("sample")
             # Number of merged clusters without chimeras calculated on _cluster_OK.fas
-            clusmergedok = open("infiles/" + line + "_cluster_OK.fas", "rt")
+            clusmergedok = open("infiles/" + sample + "_cluster_OK.fas", "rt")
             clusmerok = clusmergedok.read()
             nb_clusmok = clusmerok.count("sample")
             # Number of dereplicated sequences (R1) calculated on _derep_R1.fas
-            derepfasr1 = open("infiles/" + line + "_derep_R1.fas", "rt")
+            derepfasr1 = open("infiles/" + sample + "_derep_R1.fas", "rt")
             dfr1 = derepfasr1.read()
             nb_derpr1 = dfr1.count("sample")
             # Nb clusterR1 Calculated on _cluster_R1.fas
-            clusfasr1 = open("infiles/" + line + "_cluster_R1.fas", "rt")
+            clusfasr1 = open("infiles/" + sample + "_cluster_R1.fas", "rt")
             clusr1 = clusfasr1.read()
             nb_clusr1 = clusr1.count("sample")
             # Nb clusterR1OK Calculated on _cluster_R1_OK.fas
-            clusfasr1ok = open("infiles/" + line + "_cluster_R1_OK.fas", "rt")
+            clusfasr1ok = open("infiles/" + sample + "_cluster_R1_OK.fas", "rt")
             clusr1ok = clusfasr1ok.read()
             nb_clusr1ok = clusr1ok.count("sample")
-            out33.writelines(f"The sample {line} has:\n"
+            outfile.writelines(f"\nThe sample {sample} has:\n"
                              f"\t{nb_reads} reads\n"
                              f"\t{nb_merged} merged sequences\n"
                              f"\tThe percentage of merging is {percent}\n"
                              f"\t{nb_derpm} dereplicated merged sequences\n"
                              f"\t{nb_clusm} merged clusters\n"
-                             f"\t{nb_clusmok} merged clusters without chimera (OK)\n"
-                             f"\t---------------------\n"
+                             f"\t{nb_clusmok} merged clusters without chimera (OK)\n\n"
                              f"\t{nb_derpr1} dereplicated R1 sequences\n"
                              f"\t{nb_clusr1} R1 clusters\n"
-                             f"\t{nb_clusr1ok} R1 clusters without chimera (R1_OK)\n\n\n")
-        print("complete\n")
-
-
-def nb_seqbyloc_merged():
-    """Calculates the number of relevant cluster sequences by locus according
-    to the selected options 'minsize', minseqlength, alpha parameter' and 'identity' for merged
-    sequences (amplicons based on paired-end reads).
-    """
-    print("Computing statistics on numbers of clusters by locus based on paired-end reads -> file "
-          "'nbseq_bylocmerged.txt':")
-    with open("infiles/nbseq_bylocmerged.txt", "w") as out34:
-        for sample in samples:
-            out34.write(f"\nThe sample {sample} showed:\n")
+                             f"\t{nb_clusr1ok} R1 clusters without chimera (R1_OK)\n\n")
             for locus1 in loci1s:
                 os.chdir(locus1)
                 refs = open(sample + "_merged.fas")
                 refsloc = refs.read()
                 nb_ref = refsloc.count("sample")
-                out34.writelines(f"\t{nb_ref} clusters of merged sequences for the locus {locus1}\n")
+                outfile.writelines(f"\t{nb_ref} clusters of merged sequences of {sample} affiliated "
+                                   f"to locus {locus1}\n")
                 os.chdir("../")
+            for locus2 in loci2s:
+                os.chdir(locus2)
+                refs2 = open(sample + "_R1.fas")
+                refsloc2 = refs2.read()
+                nb_ref2 = refsloc2.count("sample")
+                outfile.writelines(f"\t{nb_ref2} clusters of single-end (R1) sequences of {sample} affiliated "
+                                   f"to locus {locus2}\n")
+                os.chdir("../")
+        print("complete\n")
+
+
+def stats_1b():
+    """Calculates the number of relevant cluster sequences for a selected locus according
+       to the selected options 'minsize', minseqlength, alpha parameter' and 'identity' for merged
+       sequences (amplicons based on paired-end reads).
+       """
+    os.chdir("../")
+    print("Computing main statistics on sequences: reads/merged/dereplicates/clusters\n"
+          "-------> infiles/Stats_options_1b.txt:")
+    with open("infiles/Stats_option_1b.txt", "w") as outfile:
+        outfile.write("With option 1b, parameters set to:\n\n"
+                      f"Directory = {current_dir}\n"
+                      f"Fastq R1 file name = {fastqr1_user}\n"
+                      f"Fastq R2 file name = {fastqr2_user}\n"
+                      f"Paired-end based loci = {loci1s}\n"
+                      f"Single-end based (R1) loci = {loci2s}\n"
+                      f"Samples = {samples}\n"
+                      f"Minimum abundance for clusters = {minsize_user}\n"
+                      f"Minimum length for sequences = {minseqlength}\n"
+                      f"Alpha clustering parameter = {alpha}\n"
+                      f"Identity for allocating clusters = {identity}\n\n"
+                      f"The selected locus is {loc_sel}\n"
+                      f"For {loc_sel}:\n")
+        os.chdir(loc_sel)
+        for sample in samples:
+            a = open(sample + "_merged.fas")
+            b = a.read()
+            c = b.count("sample")
+            outfile.write(f"\t{sample} has {c} clusters\n")
+        os.chdir('../')
     print("complete\n")
 
 
-def nb_seqbyloc_r1():
-    """Calculates the number of relevant cluster sequences by locus according
-    to the selected options 'minsize', minseqlength, alpha parameter' and 'identity' for R1
-    sequences (amplicons with no mergeable R1/R2 reads).
-    """
-    print("Computing statistics on numbers of clusters by locus based on single-end reads -> file "
-          "'nbseq_bylocR1.txt':")
-    with open("infiles/nbseq_bylocR1.txt", "w") as out34:
+def stats_1c():
+    """Calculates the number of relevant cluster sequences for a selected locus according
+       to the selected options 'minsize', minseqlength, alpha parameter' and 'identity' for merged
+       sequences (amplicons based on paired-end reads).
+       """
+    os.chdir("../")
+    print("Computing main statistics on sequences: reads/merged/dereplicates/clusters\n"
+          "-------> infiles/Stats_options_1c.txt:")
+    with open("infiles/Stats_option_1c.txt", "w") as outfile:
+        outfile.write("With option 1c, parameters set to:\n\n"
+                      f"Directory = {current_dir}\n"
+                      f"Fastq R1 file name = {fastqr1_user}\n"
+                      f"Fastq R2 file name = {fastqr2_user}\n"
+                      f"Paired-end based loci = {loci1s}\n"
+                      f"Single-end based (R1) loci = {loci2s}\n"
+                      f"Samples = {samples}\n"
+                      f"Minimum abundance for clusters = {minsize_user}\n"
+                      f"Minimum length for sequences = {minseqlength}\n"
+                      f"Alpha clustering parameter = {alpha}\n"
+                      f"Identity for allocating clusters = {identity}\n\n"
+                      f"The selected locus is {loc_sel}\n"
+                      f"For {loc_sel}:\n")
+        os.chdir(loc_sel)
         for sample in samples:
-            out34.write(f"\nThe sample {sample} showed:\n")
-            for locus2 in loci2s:
-                os.chdir(locus2)
-                refs = open(sample + "_R1.fas")
-                refsloc = refs.read()
-                nb_ref = refsloc.count("sample")
-                out34.writelines(f"\t{nb_ref} clusters of R1 sequences for the locus {locus2}\n")
-                os.chdir("../")
+            a = open(sample + "_R1.fas")
+            b = a.read()
+            c = b.count("sample")
+            outfile.write(f"\t{sample} has {c} clusters\n")
+        os.chdir('../')
+    print("complete\n")
+
+
+def stats_1d():
+    """Calculates the number of relevant cluster sequences for a selected locus according
+       to the selected options 'minsize', minseqlength, alpha parameter' and 'identity' for merged
+       sequences (amplicons based on paired-end reads).
+       """
+    os.chdir("../")
+    print("\n\nComputing main statistics on sequences: reads/merged/dereplicates/clusters\n"
+          "-------> infiles/Stats_options_1d.txt:")
+    with open("infiles/Stats_option_1d.txt", "w") as outfile:
+        outfile.write("With option 1d, parameters set to:\n\n"
+                      f"Directory = {current_dir}\n"
+                      f"Fastq R1 file name = {fastqr1_user}\n"
+                      f"Fastq R2 file name = {fastqr2_user}\n"
+                      f"Paired-end based loci = {loci1s}\n"
+                      f"Single-end based (R1) loci = {loci2s}\n"
+                      f"Samples = {samples}\n"
+                      f"Minimum abundance for clusters = {minsize_user}\n"
+                      f"Minimum length for sequences = {minseqlength}\n"
+                      f"Alpha clustering parameter = {alpha}\n"
+                      f"Identity for allocating clusters = {identity}\n\n"
+                      f"The selected sample is {sam_sel}\n"
+                      f"For {sam_sel}:\n")
+        for locus1 in loci1s:
+            os.chdir(locus1)
+            a = open(sam_sel + "_merged.fas")
+            b = a.read()
+            c = b.count("sample")
+            outfile.write(f"\t{sam_sel} has {c} clusters for locus {locus1}\n")
+            os.chdir('../')
+
+        for locus2 in loci2s:
+            os.chdir(locus2)
+            a = open(sam_sel + "_R1.fas")
+            b = a.read()
+            c = b.count("sample")
+            outfile.write(f"\t{sam_sel} has {c} clusters for locus {locus2}\n")
+            os.chdir('../')
     print("complete\n")
 
 
 # TRIM PRIMERS AND SELECT SEQUENCES ACCORDING THRESHOLDS ##############################################################
-def trim_select_all():
+def trim_2_1():
     """Select the final clusters of merged sequences by locus and by sample according to the size threshold retained
     for each of them.
     """
-    dirloc = input("--------------------------------------------------------\n"
-                   "Which LOCUS based on paired-end mergeable reads do you want to analyze? \n"
-                   "Check that the corresponding folder does exists, e.g. 16S: ")
-    while dirloc != "end":
-        while Path(dirloc).is_dir() is False:
-            dirloc = input("--------------------------------------------------------\n"
-                           "Locus name is not valid. Please enter a valid name: ")
-        os.chdir(dirloc)
-        trim_left = input(f"--------------------------------------------------------\n"
-                          f"What is the number of bp of the left primer for {dirloc}? e.g. 20: ")
-        trim_right = input(f"--------------------------------------------------------\n"
-                           f"What is the number of bp of the right primer for {dirloc}? e.g. 22: ")
-        ts = input(f"-----------------------------------------------\n"
-                   f"What THRESHOLD do you want to use for this locus {dirloc}?\n"
-                   f"e.g. for 5%, enter 0.05: ")
+    if os.path.exists("infiles/Stats_option_2.1.txt"):
+        os.remove("infiles/Stats_option_2.1.txt")
+    loc2trim = input("\nWhich LOCUS based on paired-end mergeable reads\n"
+                   f"among {loci1s} do you want to analyze?: ")
+    while loc2trim != 'end':
+        while loc2trim not in loci1s and loc2trim != "end":
+            loc2trim = input("\n-->ERROR: locus name is not valid, please enter a valid name\n"
+                           f"among {loci1s}: ")
+        os.chdir(loc2trim)
+        trim_left = input(f"\nWhat is the number of bp of the left primer for {loc2trim}? (e.g. 20): ")
+        while trim_left == "" or trim_left.isnumeric() is False:
+            trim_left = input("-->ERROR: enter an integer corresponding to the length of the left primer (e.g. 20): ")
+        trim_right = input(f"\nWhat is the number of bp of the right primer for {loc2trim}? (e.g. 22): ")
+        while trim_right == "" or trim_right.isnumeric() is False:
+            trim_right = input("-->ERROR: enter an integer corresponding to the length of the right primer (e.g. 20): ")
+        ts = input(f"\nWhat THRESHOLD do you want to use for this locus {loc2trim}?\n"
+                   f"Example: if you want to keep only the clusters those abundance (size) is greater than 5%\n"
+                   f"of the sum of sizes for each sample with {loc2trim}, enter 0.05: ")
+        while ts not in list_float_0_1:
+            ts = input("-->ERROR: THRESHOLD format is not valid, it must be number between 0 and 1\n"
+                       f"enter new THRESHOLD for {loc2trim}, (e.g. 0.04): ")
+        stat_2_1 = open(f"../infiles/Stats_option_2.1.txt", "a")
+        stat_2_1.write(f"\n{loc2trim}: selecting clusters on locus {loc2trim} with threshold = {ts}\n"
+                       f"Sequences trimmed of {trim_left} bp (left) and {trim_right} bp (right)\n")
         for sample in samples:
             with open(sample + "_orient.fas", 'r') as filin, open("trim-select." + scriptExt, "w") as out20:
                 targets = [line for line in filin if "size" in line]
@@ -1089,115 +1201,138 @@ def trim_select_all():
                     size = re.search('size=(.+?)$', target).group(1)
                     a = a + int(size)
                 b = int(a * float(ts) + 1)
-                out20.writelines(f"" + start_log_redirect('./' + sample + '.log') +
-                                 f" #Sum of sizes for {sample} = {a}'\n"
-                                 f" #Threshold set to: {ts}'\n"
-                                 f" #The sizes > {b} were conserved'\n"
-                                 f" #Trimming left and right primers:'\n"
-                                 f" #---------------------------------'\n"
-                                 f" vsearch --fastx_filter {sample}_orient.fas --fastq_stripleft {trim_left} "
-                                 f"  --fastq_stripright {trim_right} --fastaout tmp --minsize {b}" + localErrorOnStopCmd + "\n"
-                                 f" #Dereplication after trimming:'\n"
-                                 f" #---------------------------------'\n"
-                                 f" vsearch --derep_fulllength ./tmp --output {sample}_select.fas --sizein --sizeout"
+                stat_2_1.writelines(f"\tSum of sizes for {sample} = {a}\n"
+                                    f"\tThe sizes > {b} for {sample} were conserved\n")
+                out20.write(f"" + start_log_redirect('./' + sample + '.log') +
+                                 f"vsearch --fastx_filter {sample}_orient.fas --fastq_stripleft {trim_left} "
+                                 f"  --fastq_stripright {trim_right} --fastaout tmp --minsize {b}"
+                                 + localErrorOnStopCmd + "\n"
+                                 f"vsearch --derep_fulllength ./tmp --output {sample}_select.fas --sizein --sizeout"
                                  + localErrorOnStopCmd + "\n"
                                  f"" + end_log_redirect('./' + sample + '.log'))
-            sys.stdout.write("----------------------")
-            sys.stdout.write(f"\nSum of sizes for {sample} = {a}")
-            sys.stdout.write(f"\nThe sizes > {b} were conserved")
-            sys.stdout.write("----------------------")
             subprocess.run([shellCmd, "./trim-select." + scriptExt])
+            selected = open('./' + sample + '_select.fas', 'r')
+            nb_selected = selected.read().count('>')
+            stat_2_1.writelines(f"\tNumber of selected clusters {sample} = {nb_selected}\n\n")
+            sys.stdout.write(f"\n\nSum of sizes for {sample} at locus {loc2trim} = {a}\n")
+            sys.stdout.write(f"The sizes > {b} were conserved\n")
+            sys.stdout.write(f"The number of selected clusters of {sample} = {nb_selected}\n\n")
             os.remove("tmp")
             os.remove("trim-select." + scriptExt)
         os.chdir('../')
-        dirloc = input("--------------------------------------------------------\n"
-                       "Which new LOCUS based on paired-end mergeable reads do you want to analyze? \n"
-                       "Check that the corresponding folder does exists, e.g. nd4\n"
+        loc2trim = input("\nWhich new LOCUS based on paired-end mergeable reads do you want to analyze\n"
+                       f"among {loci1s}\n"
                        "Enter the NEW locus name or if you are done enter: 'end': ")
+        while loc2trim not in loci1s and loc2trim != "end":
+            loc2trim = input("\n-->ERROR: locus name is not valid, please enter a valid name\n"
+                           f"among {loci1s}: ")
+    sys.stdout.write("\nStatistical summary of 'selection according thresholds' session for paired-end based loci\n"
+                 "-------> infiles/Stats_option_2.1.txt\n")
 
 
-def trim_select_all_r1():
-    """Select the final clusters of merged sequences by locus and by sample according to the size threshold retained
+def trim_2_2():
+    """Select the final clusters of single-end sequences by locus and by sample according to the size threshold retained
     for each of them.
     """
-    dirloc = input("--------------------------------------------------------\n"
-                   "Which LOCUS based on single-end R1 reads do you want to analyze? \n"
-                   "Check that the corresponding folder does exists, e.g. gpi: ")
-    while dirloc != "end":
-        while Path(dirloc).is_dir() is False:
-            dirloc = input("--------------------------------------------------------\n"
-                           "Locus name is not valid. Please enter a valid name: ")
-        os.chdir(dirloc)
-        trim_left = input(f"--------------------------------------------------------\n"
-                          f"What is the number of bp of the left primer for {dirloc}? e.g. 20: ")
-        trim_right = input(f"--------------------------------------------------------\n"
-                           f"What is the number of nucleotides to trim at the right of the "
-                           f"fragment {dirloc}? e.g. 5: ")
-        ts = input(f"-----------------------------------------------\n"
-                   f"What THRESHOLD do you want to use for this locus {dirloc}?\n"
-                   f"e.g. for 5%, enter 0.05: ")
+    if os.path.exists("infiles/Stats_option_2.2.txt"):
+        os.remove("infiles/Stats_option_2.2.txt")
+    loc2trim = input("\nWhich LOCUS based on single-end (R1) reads\n"
+                   f"among {loci2s} do you want to analyze?: ")
+    while loc2trim != "end":
+        while loc2trim not in loci2s and loc2trim != "end":
+            loc2trim = input("-->ERROR: locus name is not valid, please enter a valid name\n"
+                           f"among {loci2s}: ")
+        os.chdir(loc2trim)
+        trim_left = input(f"\nWhat is the number of bp of the left primer for {loc2trim}? (e.g. 20): ")
+        while trim_left == "" or trim_left.isnumeric() is False:
+            trim_left = input("-->ERROR: enter an integer corresponding to the length of the left primer (e.g. 20): ")
+
+        trim_right = input(f"\nWhat is the number of bp of the right primer for {loc2trim}? (e.g. 22): ")
+        while trim_right == "" or trim_right.isnumeric() is False:
+            trim_right = input("-->ERROR: enter an integer corresponding to the length of the right primer (e.g. 20): ")
+
+        ts = input(f"\nWhat THRESHOLD do you want to use for this locus {loc2trim}?\n"
+                   f"Example: if you want to keep only the clusters those abundance (size) is greater than 5%\n"
+                   f" of the sum of sizes for each sample with {loc2trim}, enter 0.05: ")
+        while ts not in list_float_0_1:
+            ts = input("-->ERROR: THRESHOLD format is not valid, it must be number between 0 and 1\n"
+                       f"enter new THRESHOLD for {loc2trim}, (e.g. 0.04): ")
+        stat_2_2 = open(f"../infiles/Stats_option_2.2.txt", "a")
+        stat_2_2.write(f"\n{loc2trim}: selecting clusters on single-end based locus {loc2trim} with threshold = {ts}\n"
+                       f"Sequences trimmed of {trim_left} bp (left) and {trim_right} bp (right)\n")
         for sample in samples:
-            with open(sample + "_R1_orient.fas", 'r') as filin, open("trim-select." + scriptExt, "w") as out20:
+            with open(sample + "_R1.fas", 'r') as filin, open("trim-select." + scriptExt, "w") as out20:
                 targets = [line for line in filin if "size" in line]
                 a = 0
                 for target in targets:
                     size = re.search('size=(.+?)$', target).group(1)
                     a = a + int(size)
                 b = int(a * float(ts) + 1)
-                out20.writelines(f"" + start_log_redirect('./' + sample + '.log') +
-                                 f" #Sum of sizes for {sample} = {a}'\n"
-                                 f" #Threshold set to: {ts}'\n"
-                                 f" #The sizes > {b} were conserved'\n"
-                                 f" #Trimming left and right primers:'\n"
-                                 f" #---------------------------------'\n"
-                                 f" vsearch --fastx_filter {sample}_R1_orient.fas --fastq_stripleft {trim_left} "
+                stat_2_2.writelines(f"\tSum of sizes for {sample} = {a}\n"
+                                    f"\tThe sizes > {b} for {sample} were conserved\n")
+                out20.write(f"" + start_log_redirect('./' + sample + '.log') +
+                                 f"vsearch --fastx_filter {sample}_R1_orient.fas --fastq_stripleft {trim_left} "
                                  f"  --fastq_stripright {trim_right} --fastaout tmp --minsize {b}"
-                                 +  localErrorOnStopCmd + "\n"
-                                 f" #Dereplication after trimming:'\n"
-                                 f" #---------------------------------'\n"
-                                 f" vsearch --derep_fulllength ./tmp --output {sample}_R1_select.fas --sizein "
-                                 f" --sizeout" + localErrorOnStopCmd + "\n"
+                                 + localErrorOnStopCmd + "\n"
+                                 f"vsearch --derep_fulllength ./tmp --output {sample}_R1_select.fas --sizein --sizeout"
+                                 + localErrorOnStopCmd + "\n"
                                  f"" + end_log_redirect('./' + sample + '.log'))
-            sys.stdout.write("----------------------")
-            sys.stdout.write(f"\nSum of sizes for {sample}= {a}")
-            sys.stdout.write(f"\nThe sizes > {b} were conserved")
-            sys.stdout.write("----------------------")
             subprocess.run([shellCmd, "./trim-select." + scriptExt])
+            selected = open('./' + sample + '_R1_select.fas', 'r')
+            nb_selected = selected.read().count('>')
+            stat_2_2.writelines(f"\tNumber of selected clusters {sample} = {nb_selected}\n\n")
+            sys.stdout.write(f"\nSum of sizes for {sample} at locus {loc2trim} = {a}\n")
+            sys.stdout.write(f"The sizes > {b} were conserved\n")
+            sys.stdout.write(f"The number of selected clusters of {sample} = {nb_selected}\n\n")
             os.remove("tmp")
             os.remove("trim-select." + scriptExt)
         os.chdir('../')
-        dirloc = input("--------------------------------------------------------\n"
-                       "Which new LOCUS based on single-end R1 reads do you want to analyze? \n"
-                       "Check that the corresponding folder does exists, e.g. nd4\n"
+        loc2trim = input("\nWhich new LOCUS based on single-end reads do you want to analyze\n"
+                       f"among {loci2s}\n"
                        "Enter the NEW locus name or if you are done enter: 'end': ")
+        while loc2trim not in loci2s and loc2trim != "end":
+            loc2trim = input("\n-->ERROR: locus name is not valid, please enter a valid name\n"
+                           f"among {loci2s}: ")
+    sys.stdout.write("\nStatistical summary of 'selection according thresholds' session for "
+                     "single-end (R1) based loci\n"
+                     "-------> infiles/Stats_option_2.2.txt\n")
 
 
-def trim_select():
+def trim_2_3():
     """Select the final clusters of merged sequences by locus and by sample according to the size threshold retained
     for each of them.
     """
-    dirloc = input("--------------------------------------------------------\n"
-                   "Which LOCUS based on paired-end mergeable reads do you want to analyze? \n"
-                   "Check that the corresponding folder does exists, e.g. 16S: ")
-    while dirloc != "end":
-        while Path(dirloc).is_dir() is False:
-            dirloc = input("--------------------------------------------------------\n"
-                           "Locus name is not valid. Please enter a valid name: ")
-        os.chdir(dirloc)
-        trim_left = input(f"--------------------------------------------------------\n"
-                          f"What is the number of bp of the left primer for {dirloc}? e.g. 20: ")
-        trim_right = input(f"--------------------------------------------------------\n"
-                           f"What is the number of bp of the right primer for {dirloc}? e.g. 22: ")
-        orient = input(f"------------------------------------------------------\n"
-                       f"Which SAMPLE x_orient.fas do you want to trim for the locus {dirloc}\n"
-                       "only enter the sample name x, e.g. sample1: ")
+    if os.path.exists("infiles/Stats_option_2.3.txt"):
+        os.remove("infiles/Stats_option_2.3.txt")
+
+    loc2trim = input("\nWhich LOCUS based on paired-end mergeable reads\n"
+                   f"among {loci1s} do you want to analyze?: ")
+    while loc2trim != "end" or "":
+        while Path(loc2trim).is_dir() is False or loc2trim == "":
+            loc2trim = input("-->ERROR: locus name is not valid, please enter a valid name\n"
+                           f"among {loci1s}: ")
+        os.chdir(loc2trim)
+        trim_left = input(f"What is the number of bp of the left primer for {loc2trim}? (e.g. 20): ")
+        while trim_left == "" or trim_left.isnumeric() is False:
+            trim_left = input("-->ERROR: enter an integer corresponding to the length of the left primer (e.g. 20): ")
+        trim_right = input(f"\nWhat is the number of bp of the right primer for {loc2trim}? (e.g. 22): ")
+        while trim_right == "" or trim_right.isnumeric() is False:
+            trim_right = input("-->ERROR: enter an integer corresponding to the length of the right primer (e.g. 20): ")
+        stat_2_3 = open(f"../infiles/Stats_option_2.3.txt", "a")
+        stat_2_3.write(f"\n{loc2trim}: trimmed of {trim_left} bp (left) and {trim_right} "
+                       f"bp (right)\n")
+        orient = input(f"\nWhich SAMPLE do you want to trim\n"
+                       f"among {samples} for the locus {loc2trim}: ")
         while orient != "end":
-            while os.path.isfile(orient + "_orient.fas") is False:
-                orient = input(f"--------------------------------------------------------\n"
-                               f"Sample name '{orient}' is not valid, please enter a valid name: ")
-            ts = input(f"--------------------------------------------------------\n"
-                       f"What THRESHOLD you want for this sample {orient} of locus {dirloc}\n"
-                       f"e.g. for 5%, enter 0.05: ")
+            while orient not in samples:
+                orient = input(f"\n-->ERROR: sample name '{orient}' is not valid, please enter a valid name\n"
+                               f"among {samples}: ")
+            ts = input(f"\nWhat THRESHOLD you want for sample {orient} on locus {loc2trim}\n"
+                       f"Example: if you want to keep only the clusters those abundance (size) of {orient}\n "
+                       f"is greater than 5% of the sum of sizes for this sample with {loc2trim}, enter 0.05: ")
+            while ts not in list_float_0_1:
+                ts = input("-->ERROR: THRESHOLD format is not valid, it must be number between 0 and 1\n"
+                           f"enter new THRESHOLD for {loc2trim}, (e.g. 0.04): ")
             with open(orient + "_orient.fas", 'r') as filin, open("trim-select." + scriptExt, "w") as out20:
                 targets = [line for line in filin if "size" in line]
                 a = 0
@@ -1205,62 +1340,74 @@ def trim_select():
                     size = re.search('size=(.+?)$', target).group(1)
                     a = a + int(size)
                 b = int(a * float(ts) + 1)
+                stat_2_3.writelines(f"\tSum of sizes for {orient} = {a}\n"
+                                f"\tAt threshold {ts} sizes > {b} for {orient} were conserved\n")
                 out20.writelines(f'' + start_log_redirect('./' + orient + '.log') +
-                                 f' #Sum of sizes for {orient} = {a}\n'
-                                 f' #Threshold set to: {ts}\n'
-                                 f' #The sizes > {b} were conserved\n'
-                                 f' #Trimming left and right primers:\n'
-                                 f' #---------------------------------\n'
-                                 f' vsearch --fastx_filter {orient}_orient.fas --fastq_stripleft {trim_left} '
-                                 f'  --fastq_stripright {trim_right} --fastaout tmp --minsize {b}\n'
-                                 f' #Dereplication after trimming:\n'
-                                 f' #---------------------------------\n'
-                                 f' vsearch --derep_fulllength ./tmp --output {orient}_select.fas --sizein --sizeout\n'
-                                 f'' + end_log_redirect('./' + orient + '.log'))
-            sys.stdout.write("----------------------")
-            sys.stdout.write(f"\nSum of sizes for {orient} = {a}")
-            sys.stdout.write(f"\nThe sizes > {b} were conserved")
-            sys.stdout.write("----------------------")
+                             f' vsearch --fastx_filter {orient}_orient.fas --fastq_stripleft {trim_left} '
+                             f'  --fastq_stripright {trim_right} --fastaout tmp --minsize {b}\n'
+                             + localErrorOnStopCmd + "\n"
+                             f' vsearch --derep_fulllength ./tmp --output {orient}_select.fas --sizein --sizeout\n'
+                             + localErrorOnStopCmd + "\n"
+                             f'' + end_log_redirect('./' + orient + '.log'))
             subprocess.run([shellCmd, "./trim-select." + scriptExt])
+            selected = open("./" + orient + "_select.fas", "r")
+            nb_selected = selected.read().count(">")
+            stat_2_3.writelines(f"\tNumber of selected clusters for {orient} = {nb_selected}\n\n")
+            sys.stdout.write(f"\nSum of sizes for {orient} = {a}\n")
+            sys.stdout.write(f"The sizes > {b} were conserved\n")
+            sys.stdout.write(f"The number of selected clusters of {orient} = {nb_selected}\n")
             os.remove("tmp")
             os.remove("trim-select." + scriptExt)
-            orient = input(f"--------------------------------------------------------\n"
-                           f"Which NEW FILE do you want to trim for the locus {dirloc}?\n"
-                           f"enter the sample name or, if you terminated with the locus {dirloc} enter 'end': ")
+            orient = input(f"\nWhich NEW sample do you want to trim\n"
+                           f"among {samples} for the locus {loc2trim}?\n"
+                           f"enter the sample name or, if you terminated with the locus {loc2trim} enter 'end': ")
         os.chdir('../')
-        dirloc = input("--------------------------------------------------------\n"
-                       "Which new LOCUS based on paired-end mergeable reads do you want to analyze? \n"
-                       "Check that the corresponding folder does exists, e.g. nd4\n"
-                       "Enter the NEW locus name or if you are done enter: 'end': ")
+        loc2trim = input("\nWhich new LOCUS based on paired-end mergeable reads do you want to analyze\n"
+                   f"among {loci1s}?\n"
+                   "Enter the NEW locus name or if you are terminated enter: 'end': ")
+        while loc2trim not in loci1s and loc2trim != "end":
+            loc2trim = input(f"\n-->ERROR: locus name is not valid, please enter a valid name\n"
+                         f"among {loci1s} or 'end' if terminated: ")
+    sys.stdout.write("\nStatistical summary of 'selection according thresholds sample by sample' session for "
+                     "paired-end based loci\n"
+                     "-------> infiles/Stats_option_2.3.txt\n")
 
 
-def trim_select_r1():
+def trim_2_4():
     """Select the final clusters of merged sequences by locus and by sample according to the size threshold retained
     for each of them.
     """
-    dirloc = input("--------------------------------------------------------\n"
-                   "Which LOCUS based on single-end R1 reads do you want to analyze? \n"
-                   "Check that the corresponding folder does exists, e.g. gpi: ")
-    while dirloc != "end":
-        while Path(dirloc).is_dir() is False:
-            dirloc = input("--------------------------------------------------------\n"
-                           "Locus name is not valid. Please enter a valid name: ")
-        os.chdir(dirloc)
-        trim_left = input(f"--------------------------------------------------------\n"
-                          f"What is the number of bp of the left primer for {dirloc}? e.g. 20: ")
-        trim_right = input(f"--------------------------------------------------------\n"
-                           f"What is the number of nucleotides to trim at the right of the fragment"
-                           f" {dirloc}? e.g. 5: ")
-        orient = input(f"------------------------------------------------------\n"
-                       f"Which SAMPLE x_R1_orient.fas do you want to trim for the locus {dirloc}\n"
-                       "only enter the sample name x, e.g. sample1: ")
+    if os.path.exists("infiles/Stats_option_2.4.txt"):
+        os.remove("infiles/Stats_option_2.4.txt")
+
+    loc2trim = input("\nWhich LOCUS based on single-end reads\n"
+                   f"among {loci2s} do you want to analyze?: ")
+    while loc2trim != "end" or "":
+        while Path(loc2trim).is_dir() is False or loc2trim == "":
+            loc2trim = input(f"\n-->ERROR: locus name is not valid, please enter a valid name\n"
+                           f"among {loci2s}: ")
+        os.chdir(loc2trim)
+        trim_left = input(f"\nWhat is the number of bp of the left primer for {loc2trim}? (e.g. 20): ")
+        while trim_left == "" or trim_left.isnumeric() is False:
+            trim_left = input("-->ERROR: enter an integer corresponding to the length of the left primer (e.g. 20): ")
+        trim_right = input(f"\nWhat is the number of bp of the right primer for {loc2trim}? (e.g. 22): ")
+        while trim_right == "" or trim_right.isnumeric() is False:
+            trim_right = input("-->ERROR: enter an integer corresponding to the length of the right primer (e.g. 20): ")
+        stat_2_4 = open(f"../infiles/Stats_option_2.4.txt", "a")
+        stat_2_4.write(f"\n{loc2trim}: trimmed of {trim_left} bp (left) and {trim_right} "
+                           f"bp (right)\n")
+        orient = input(f"\nWhich SAMPLE do you want to trim\n"
+                       f"among {samples} for the locus {loc2trim}: ")
         while orient != "end":
-            while os.path.isfile(orient + "_R1_orient.fas") is False:
-                orient = input(f"--------------------------------------------------------\n"
-                               f"Sample name '{orient}' is not valid, please enter a valid name: ")
-            ts = input(f"--------------------------------------------------------\n"
-                       f"What THRESHOLD you want for this sample {orient} of locus {dirloc}\n"
-                       f"e.g. for 5%, enter 0.05: ")
+            while orient not in samples:
+                orient = input(f"\n-->ERROR: sample name '{orient}' is not valid, please enter a valid name\n"
+                               f"among {samples}: ")
+            ts = input(f"\nWhat THRESHOLD you want for sample {orient} on locus {loc2trim}\n"
+                       f"Example: if you want to keep only the clusters those abundance (size) of {orient}\n "
+                       f"is greater than 5% of the sum of sizes for this sample with {loc2trim}, enter 0.05: ")
+            while ts not in list_float_0_1:
+                ts = input("-->ERROR: THRESHOLD format is not valid, it must be number between 0 and 1\n"
+                           f"enter new THRESHOLD for {loc2trim}, (e.g. 0.04): ")
             with open(orient + "_R1_orient.fas", 'r') as filin, open("trim-select." + scriptExt, "w") as out20:
                 targets = [line for line in filin if "size" in line]
                 a = 0
@@ -1268,257 +1415,268 @@ def trim_select_r1():
                     size = re.search('size=(.+?)$', target).group(1)
                     a = a + int(size)
                 b = int(a * float(ts) + 1)
+                stat_2_4.writelines(f"\tSum of sizes for {orient} = {a}\n"
+                                f"\tAt threshold {ts} sizes > {b} for {orient} were conserved\n")
                 out20.writelines(f'' + start_log_redirect('./' + orient + '.log') +
-                                 f' #Sum of sizes for {orient} = {a}\n'
-                                 f' #Threshold set to: {ts}\n'
-                                 f' #The sizes > {b} were conserved\n'
-                                 f' #Trimming left and right primers:\n'
-                                 f' #---------------------------------\n'
-                                 f' vsearch --fastx_filter {orient}_R1_orient.fas --fastq_stripleft {trim_left} '
-                                 f'  --fastq_stripright {trim_right} --fastaout tmp --minsize {b}\n'
-                                 f' #Dereplication after trimming:\n'
-                                 f' #---------------------------------\n'
-                                 f' vsearch --derep_fulllength ./tmp --output {orient}_R1_select.fas --sizein '
-                                 f' --sizeout\n'
-                                 f'' + end_log_redirect('./' + orient + '.log'))
-            sys.stdout.write("----------------------")
-            sys.stdout.write(f"\nSum of sizes for {orient} = {a}")
-            sys.stdout.write(f"\nThe sizes > {b} were conserved")
-            sys.stdout.write("----------------------")
+                             f' vsearch --fastx_filter {orient}_R1_orient.fas --fastq_stripleft {trim_left} '
+                             f'  --fastq_stripright {trim_right} --fastaout tmp --minsize {b}\n'
+                             + localErrorOnStopCmd + "\n"
+                             f' vsearch --derep_fulllength ./tmp --output {orient}_R1_select.fas --sizein --sizeout\n'
+                             + localErrorOnStopCmd + "\n"
+                             f'' + end_log_redirect('./' + orient + '.log'))
             subprocess.run([shellCmd, "./trim-select." + scriptExt])
+            selected = open("./" + orient + "_R1_select.fas", "r")
+            nb_selected = selected.read().count(">")
+            stat_2_4.writelines(f"\tNumber of selected clusters for {orient} = {nb_selected}\n\n")
+            sys.stdout.write(f"\nSum of sizes for {orient} = {a}\n")
+            sys.stdout.write(f"The sizes > {b} were conserved\n")
+            sys.stdout.write(f"The number of selected clusters of {orient} = {nb_selected}\n")
             os.remove("tmp")
             os.remove("trim-select." + scriptExt)
-            orient = input(f"--------------------------------------------------------\n"
-                           f"Which NEW FILE do you want to trim for the locus {dirloc}?\n"
-                           f"enter the sample name or, if you are done with the locus {dirloc} enter 'end': ")
+            orient = input(f"\nWhich NEW sample do you want to trim\n"
+                           f"among {samples} for the locus {loc2trim}?\n"
+                           f"enter the sample name or, if you terminated with the locus {loc2trim} enter 'end': ")
         os.chdir('../')
-        dirloc = input("--------------------------------------------------------\n"
-                       "Which new LOCUS based on single-end R1 reads do you want to analyze? \n"
-                       "Check that the corresponding folder does exists, e.g. nd4\n"
-                       "Enter the NEW locus name or if you are done enter: 'end': ")
+        loc2trim = input("Which new LOCUS based on paired-end mergeable reads do you want to analyze\n"
+                   f"among {loci2s}?\n"
+                   "Enter the NEW locus name or if you are terminated enter: 'end': ")
+        while loc2trim not in loci2s and loc2trim != "end":
+            loc2trim = input(f"\n-->ERROR: locus name is not valid, please enter a valid name\n"
+                         f"among {loci2s} or 'end' if terminated: ")
+    sys.stdout.write("\nStatistical summary of 'selection according thresholds sample by sample' session for single-end"
+                     " based loci\n"
+                     "-------> infiles/Stats_option_2.4.txt\n")
 
 
 # CLUSTERING OF ALL SAMPLES BY LOCUS FOR PHYLOGENETIC ANALYZES ########################################################
 def concat():
     """CLUSTERING OF ALL SAMPLES BY LOCUS FOR PHYLOGENETIC ANALYZES
     """
-    loc2cat = input("----------------------------------------------------------\n"
-                    "\nFor which LOCUS do you want to cluster all the sample sequences?: ")
+    if os.path.exists("infiles/Stats_option_3.txt"):
+        os.remove("infiles/Stats_option_3.txt")
+    loc2cat = input("f\nFor which LOCUS do you want to cluster all the selected sample sequences\n"
+                    f"among {loci1s} or {loci2s} ?: ")
     while loc2cat != "end":
-        while Path(loc2cat).is_dir() is False:
-            loc2cat = input("\nLocus name is not valid. Please enter a valid name: ")
+        while Path(loc2cat).is_dir() is False or loc2cat == "" and loc2cat != "end":
+            loc2cat = input(f"\n-->ERROR: locus name is not valid, please enter a valid name\n"
+                            f"among {loci1s} or {loci2s}: ")
+        stat_3 = open('./infiles/Stats_option_3.txt', 'a')
         os.chdir(loc2cat)
         files2cat = glob.glob('*_select.fas')
         with open("./" + loc2cat + "_allseq_select.fasta", "w") as out:
             for file in files2cat:
                 with open(file, "r") as out2:
                     out.write(out2.read())
-        sys.stdout.write(f"\nThe files {files2cat} have been clustered for locus {loc2cat}\n")
+        tot = open("./" + loc2cat + "_allseq_select.fasta")
+        nb_tot = tot.read().count(">")
+        stat_3.writelines(f"The locus {loc2cat} has {nb_tot} sequences\n")
+        sys.stdout.write(f"\n{nb_tot} sequences have been clustered for locus {loc2cat}\n")
         os.chdir('../')
-        loc2cat = input("----------------------------------------------------\n"
-                        "\nFor which NEW LOCUS do you want to cluster all the sample sequences?\n"
-                        "Enter the NEW locus name or 'end' if you terminated: ")
-    else:
-        sys.stdout.write("\n\n**** CLUSTERING SESSION FOR PHYLOGENETIC ANALYZES is COMPLETE ****\n\n")
-        exit()
+        loc2cat = input("\nFor which NEW LOCUS do you want to cluster all the sample sequences?\n"
+                        f"Enter the NEW locus name among {loci1s} or {loci2s} \n"
+                        f"or 'end' if you terminated: ")
+
+    sys.stdout.write("\nSee the results of concatenation session\n"
+                     "-------> infiles/Stats_option_3.txt\n")
+    sys.stdout.write("\n\n**** CLUSTERING SESSION FOR PHYLOGENETIC ANALYZES is COMPLETE ****\n\n")
 
 
 #######################################################################################################################
 if __name__ == "__main__":
     date = datetime.datetime.now()
     current_dir = os.getcwd()
+    list_float_0_1 = str(numpy.arange(0, 1, 0.001))
     print("\n#################################################################################################\n"
           "STEPS 1, 2 and 3 of the MAIN MENU are mandatory for a complete analysis while others are optional\n"
           "#################################################################################################")
-    rmenu = input("\n************************************** MAIN MENU *************************************\n\n"
-                  "0  -> Initial and optional quality checking of fastq files (slow - be patient!)\n"
-                  "1  -> NEW COMPLETE ANALYSIS\n"
-                  "1a -> Re-analyze all loci, from the clustering step, modifying parameters\n"
-                  "1b -> Re-analyze only one locus of paired-end amplicon (merged reads), modifying parameters\n"
-                  "1c -> Re-analyze only one locus of single-end amplicon (R1 only), modifying parameters\n"
-                  "1d -> Re-analyse only one sample, modifying parameters\n"
-                  "2  -> SELECTION OF MINIMUM SIZES ACCORDING TO THRESHOLDS SET BY THE USER\n"
-                  "3  -> CLUSTERING OF ALL SAMPLES BY LOCUS FOR PHYLOGENETIC ANALYZES\n"
-                  "end -> Exit the program\n\n"
-                  " ********* Type 0, 1, 1a, 1b, 1c, 1d, 2, 3 or end: ")
+    while(True):
+        rmenu = input("\n************************************** MAIN MENU *************************************\n\n"
+                      "0  -> Initial and optional quality checking of fastq files (slow - be patient!)\n"
+                      "1  -> NEW COMPLETE ANALYSIS\n"
+                      "1a -> Re-analyze all loci, from the clustering step, modifying parameters\n"
+                      "1b -> Re-analyze only one locus of paired-end amplicon (merged reads), modifying parameters\n"
+                      "1c -> Re-analyze only one locus of single-end amplicon (R1 only), modifying parameters\n"
+                      "1d -> Re-analyse only one sample, modifying parameters\n"
+                      "2  -> SELECTION OF MINIMUM SIZES ACCORDING TO THRESHOLDS SET BY THE USER\n"
+                      "3  -> CLUSTERING OF ALL SAMPLES BY LOCUS FOR PHYLOGENETIC ANALYZES\n"
+                      "end -> Exit the program\n\n"
+                      " ********* Type 0, 1, 1a, 1b, 1c, 1d, 2, 3 or end: ")
 
-    # Optional statistical tests on fastq files
-    if rmenu == "0":
-        input_dir_fastq()
-        input_fastqr1_user()
-        input_fastqr2_user()
-        input_sample_user()
-        folder_infiles()
-        folder_scripts()
-        stat()
+        # Optional statistical tests on fastq files
+        if rmenu == "0":
+            input_dir_fastq()
+            input_fastqr1_user()
+            input_fastqr2_user()
+            input_sample_user()
+            folder_infiles()
+            folder_scripts()
+            stat()
 
-        sys.stdout.write("\n\n")
-        if runall_0() > 0:
-            print("\nQuality checking execution failed, please check infiles/results.log")
-            exit(1)
+            sys.stdout.write("\n\n")
+            if runall_0() > 0:
+                print("\nQuality checking execution failed, please check infiles/results.log")
+                exit(1)
 
-        sys.stdout.write("\n**** PROCEDURE 0 (quality checking) EXECUTION IS COMPLETE ****\n\n")
+            sys.stdout.write("\n\n**** PROCEDURE 0 (quality checking) EXECUTION IS COMPLETE ****\n\n")
 
-    # NEW ANALYSIS
-    if rmenu == "1":
-        input_dir_fastq()
-        input_fastqr1_user()
-        input_fastqr2_user()
-        input_loci1_user()
-        input_loci2_user()
-        input_sample_user()
-        input_minsize_user()
-        input_minseqlength()
-        input_alpha()
-        input_identity()
-        param_1()
-        folder_infiles()
-        folder_scripts()
-        folder_loci()
-        folder_refs()
-        merging()
-        fastq2fas()
-        derep_merged()
-        derep_r1()
-        cluster_merged()
-        cluster_r1()
-        chimera_merged()
-        chimera_r1()
-        runloc_merged()
-        runloc_r1()
-        orient_merged()
-        orient_r1()
+        # NEW ANALYSIS
+        if rmenu == "1":
+            input_dir_fastq()
+            input_fastqr1_user()
+            input_fastqr2_user()
+            input_loci1_user()
+            input_loci2_user()
+            input_sample_user()
+            input_minsize_user()
+            input_minseqlength()
+            input_alpha()
+            input_identity()
+            param_1()
+            folder_infiles()
+            folder_scripts()
+            folder_loci()
+            folder_refs()
+            merging()
+            fastq2fas()
+            derep_merged()
+            derep_r1()
+            cluster_merged()
+            cluster_r1()
+            chimera_merged()
+            chimera_r1()
+            runloc_merged()
+            runloc_r1()
+            orient_merged()
+            orient_r1()
+            sys.stdout.write("\n\n")
+            if runall_1() > 0:
+                print("\nMain analysis execution failed, please check infiles/results.log")
+                exit(1)
+            stats_1_1a()
+            sys.stdout.write("\n\n**** PROCEDURE 1 (main analysis) EXECUTION IS COMPLETE ****\n\n")
 
-        sys.stdout.write("\n\n")
-        if runall_1() > 0:
-            print("\nMain analysis execution failed, please check infiles/results.log")
-            exit(1)
-
-        nb_clus()
-        nb_seqbyloc_merged()
-        nb_seqbyloc_r1()
-        sys.stdout.write("\n**** PROCEDURE 1 (main analysis) EXECUTION IS COMPLETE ****\n\n")
-
-    # Re-analyze all loci, from the clustering step, modifying parameters
-    if rmenu == "1a":
-        prev_param()
-        input_minsize_user()
-        input_minseqlength()
-        input_alpha()
-        input_identity()
-        param_1a()
-        cluster_merged()
-        cluster_r1()
-        chimera_merged()
-        chimera_r1()
-        runloc_merged()
-        runloc_r1()
-        orient_merged()
-        orient_r1()
-        runall_1a()
-        nb_clus()
-        nb_seqbyloc_merged()
-        nb_seqbyloc_r1()
-        sys.stdout.write("\n\n**** RUN OPTION 1a IS COMPLETE ****\n\n")
-
-    # Re-analyze only one locus of paired-end amplicon (merged reads), modifying parameters
-    if rmenu == "1b":
-        prev_param()
-        input_loc_sel_merged()
-        input_minsize_user()
-        input_minseqlength()
-        input_alpha()
-        input_identity()
-        param_1b()
-        cluster_merged()
-        chimera_merged()
-        runlocsel_merged()
-        orient_one_loc_1b()
-        runall_1b()
-        sys.stdout.write("\n\n**** RUN OPTION 1b IS COMPLETE ****\n\n")
-
-    # Re-analyze only one locus of single-end amplicon (R1 only), modifying parameters
-    if rmenu == "1c":
-        prev_param()
-        input_loc_sel_r1()
-        input_minsize_user()
-        input_minseqlength()
-        input_alpha()
-        input_identity()
-        param_1c()
-        cluster_r1()
-        chimera_r1()
-        runlocsel_r1()
-        orient_one_loc_1c()
-        runall_1c()
-        sys.stdout.write("\n\n**** RUN OPTION 1c IS COMPLETE ****\n\n")
-
-    # Re-analyse only one sample, modifying parameters
-    if rmenu == "1d":
-        prev_param()
-        input_sam_sel()
-        input_minsize_user()
-        input_minseqlength()
-        input_alpha()
-        input_identity()
-        param_1d()
-        cluster_one_sample_1d()
-        chimera_one_sample_1d()
-        runloc_one_sample_1d()
-        orient_one_sample_1d()
-        runall_1d()
-        sys.stdout.write("\n\n**** RUN OPTION 1d IS COMPLETE ****\n\n")
-
-    # SELECTION OF MINIMUM SIZES ACCORDING TO THRESHOLDS SET BY THE USER
-    if rmenu == '2':
-        submenu = input("\n***************** MINIMUM SIZE SELECTION MENU *****************\n\n"
-                        "1- Apply the SAME size threshold for ALL SAMPLES for the loci based on PAIRED-END reads "
-                        "(R1/R2 merged)\n"
-                        "i.e. you want to keep only sequences whose abundance (size)\n"
-                        "is greater than x% of the total number of sequences for a given sample.\n"
-                        "This threshold of x% can be chosen for each locus.\n\n"
-                        "2- Apply the SAME size threshold for ALL SAMPLES for the loci based on SINGLE-END reads "
-                        "(R1 only)\n"
-                        "idem than option 1 but only using the R1 reads instead of merged ones.\n\n"
-                        "3- Apply a SPECIFIC size threshold for EACH SAMPLE, for the loci based on PAIRED-END reads "
-                        "(R1/R2 merged)\n"
-                        "i.e. you want to modulate the threshold of x% by locus but also by sample\n"
-                        "within a particular locus.\n\n"
-                        "4- Apply a SPECIFIC size threshold for EACH SAMPLE, for the loci based on SINGLE-END reads "
-                        "(R1 only)\n"
-                        "idem than option 3 but only using the R1 sequences instead of merged ones.\n\n"
-                        " ************************************** Type 1, 2, 3, 4 or end: ")
-        if submenu == "1":
+        # Re-analyze all loci, from the clustering step, modifying parameters
+        if rmenu == "1a":
             prev_param()
-            trim_select_all()
-            sys.stdout.write("\n\n**** SIZE SELECTION for loci based on PAIRED-END reads is COMPLETE ****\n\n")
+            input_minsize_user()
+            input_minseqlength()
+            input_alpha()
+            input_identity()
+            param_1a()
+            cluster_merged()
+            cluster_r1()
+            chimera_merged()
+            chimera_r1()
+            runloc_merged()
+            runloc_r1()
+            orient_merged()
+            orient_r1()
+            runall_1a()
+            stats_1_1a()
+            sys.stdout.write("\n\n**** RUN OPTION 1a IS COMPLETE ****\n\n")
 
-        if submenu == "2":
+        # Re-analyze only one locus of paired-end amplicon (merged reads), modifying parameters
+        if rmenu == "1b":
             prev_param()
-            trim_select_all_r1()
-            sys.stdout.write("\n\n**** SIZE SELECTION for loci base on SINGLE-END reads (R1 only) "
-                             "is COMPLETE ****\n\n")
+            input_loc_sel_merged()
+            input_minsize_user()
+            input_minseqlength()
+            input_alpha()
+            input_identity()
+            param_1b()
+            cluster_merged()
+            chimera_merged()
+            runlocsel_merged()
+            orient_one_loc_1b()
+            runall_1b()
+            stats_1b()
+            sys.stdout.write("\n\n**** RUN OPTION 1b IS COMPLETE ****\n\n")
 
-        if submenu == "3":
+        # Re-analyze only one locus of single-end amplicon (R1 only), modifying parameters
+        if rmenu == "1c":
             prev_param()
-            trim_select()
-            sys.stdout.write("\n\n**** SIZE SELECTION by sample and by loci based on PAIRED-END is "
-                             "COMPLETE ****\n\n")
+            input_loc_sel_r1()
+            input_minsize_user()
+            input_minseqlength()
+            input_alpha()
+            input_identity()
+            param_1c()
+            cluster_r1()
+            chimera_r1()
+            runlocsel_r1()
+            orient_one_loc_1c()
+            runall_1c()
+            stats_1c()
+            sys.stdout.write("\n\n**** RUN OPTION 1c IS COMPLETE ****\n\n")
 
-        if submenu == "4":
+        # Re-analyse only one sample, modifying parameters
+        if rmenu == "1d":
             prev_param()
-            trim_select_r1()
-            sys.stdout.write("\n\n**** SIZE SELECTION by sample and by loci based on SINGLE-END is "
-                             "COMPLETE ****\n\n")
+            input_sam_sel()
+            input_minsize_user()
+            input_minseqlength()
+            input_alpha()
+            input_identity()
+            param_1d()
+            cluster_one_sample_1d()
+            chimera_one_sample_1d()
+            runloc_one_sample_1d()
+            orient_one_sample_1d()
+            runall_1d()
+            stats_1d()
+            sys.stdout.write("\n\n**** RUN OPTION 1d IS COMPLETE ****\n\n")
 
-        if submenu == "end":
+        # SELECTION OF MINIMUM SIZES ACCORDING TO THRESHOLDS SET BY THE USER
+        if rmenu == '2':
+            submenu = input("\n***************** MINIMUM SIZE SELECTION MENU *****************\n\n"
+                            "1- Apply the SAME size threshold for ALL SAMPLES for the loci based on PAIRED-END reads "
+                            "(R1/R2 merged)\n"
+                            "i.e. you want to keep only sequences whose abundance (size)\n"
+                            "is greater than x% of the total number of sequences for a given sample.\n"
+                            "This threshold of x% can be chosen for each locus.\n\n"
+                            "2- Apply the SAME size threshold for ALL SAMPLES for the loci based on SINGLE-END reads "
+                            "(R1 only)\n"
+                            "idem than option 1 but only using the R1 reads instead of merged ones.\n\n"
+                            "3- Apply a SPECIFIC size threshold for EACH SAMPLE, for the loci based on PAIRED-END reads "
+                            "(R1/R2 merged)\n"
+                            "i.e. you want to modulate the threshold of x% by locus but also by sample\n"
+                            "within a particular locus.\n\n"
+                            "4- Apply a SPECIFIC size threshold for EACH SAMPLE, for the loci based on SINGLE-END reads "
+                            "(R1 only)\n"
+                            "idem than option 3 but only using the R1 sequences instead of merged ones.\n\n"
+                            " ************************************** Type 1, 2, 3, 4 or end: ")
+            if submenu == "1":
+                prev_param()
+                trim_2_1()
+                sys.stdout.write("\n\n**** SIZE SELECTION for loci based on PAIRED-END reads is COMPLETE ****\n\n")
+
+            if submenu == "2":
+                prev_param()
+                trim_2_2()
+                sys.stdout.write("\n\n**** SIZE SELECTION for loci base on SINGLE-END reads (R1 only) "
+                                 "is COMPLETE ****\n\n")
+
+            if submenu == "3":
+                prev_param()
+                trim_2_3()
+                sys.stdout.write("\n\n**** SIZE SELECTION by sample and by loci based on PAIRED-END is "
+                                 "COMPLETE ****\n\n")
+
+            if submenu == "4":
+                prev_param()
+                trim_2_4()
+                sys.stdout.write("\n\n**** SIZE SELECTION by sample and by loci based on SINGLE-END is "
+                                 "COMPLETE ****\n\n")
+
+            if submenu == "end":
+                exit()
+
+        # CLUSTERING OF ALL SAMPLES BY LOCUS FOR PHYLOGENETIC ANALYZES
+        if rmenu == "3":
+            prev_param()
+            concat()
+
+        # Exit the program
+        if rmenu == "end":
+            sys.stdout.write("\n\n**** THANK YOU FOR USING MBCTOOLS ****\n\n")
             exit()
-
-    # CLUSTERING OF ALL SAMPLES BY LOCUS FOR PHYLOGENETIC ANALYZES
-    if rmenu == "3":
-        concat()
-
-    # Exit the program
-    if rmenu == "end":
-        sys.stdout.write("\n\n**** THANK YOU FOR USING MBCTOOLS ****\n\n")
-        exit()
