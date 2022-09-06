@@ -9,7 +9,7 @@ metabarcoding NGS data in the best conditions. It proposes the following MAIN ME
 1b -> Re-analyze only one locus of paired-end amplicon (merged reads), modifying parameters
 1c -> Re-analyze only one locus of single-end amplicon (R1 only), modifying parameters
 1d -> Re-analyse only one sample, modifying parameters
-2  -> SELECTION OF MINIMUM SIZES ACCORDING TO THRESHOLDS SET BY THE USER
+2  -> SELECTION OF MINIMUM SIZES ACCORDING TO USER-DEFINED THRESHOLDS
 3  -> CLUSTERING OF ALL SAMPLES BY LOCUS FOR PHYLOGENETIC ANALYZES
 end -> Exit the program
 
@@ -982,7 +982,7 @@ def stats_1_1a():
     """
     os.chdir("../")
     print("Computing main statistics on sequences: reads/merged/dereplicates/clusters\n"
-          "-------> infiles/Stats_options_1_1a.txt:")
+          "-------> infiles/Stats_option_1_1a.txt:")
     with open("infiles/Stats_option_1_1a.txt", "w") as outfile:
         outfile.write("With option 1 or 1a, parameters set to:\n\n"
                       f"Directory = {current_dir}\n"
@@ -1067,7 +1067,7 @@ def stats_1b():
        """
     os.chdir("../")
     print("Computing main statistics on sequences: reads/merged/dereplicates/clusters\n"
-          "-------> infiles/Stats_options_1b.txt:")
+          "-------> infiles/Stats_option_1b.txt:")
     with open("infiles/Stats_option_1b.txt", "w") as outfile:
         outfile.write("With option 1b, parameters set to:\n\n"
                       f"Directory = {current_dir}\n"
@@ -1099,7 +1099,7 @@ def stats_1c():
        """
     os.chdir("../")
     print("Computing main statistics on sequences: reads/merged/dereplicates/clusters\n"
-          "-------> infiles/Stats_options_1c.txt:")
+          "-------> infiles/Stats_option_1c.txt:")
     with open("infiles/Stats_option_1c.txt", "w") as outfile:
         outfile.write("With option 1c, parameters set to:\n\n"
                       f"Directory = {current_dir}\n"
@@ -1131,7 +1131,7 @@ def stats_1d():
        """
     os.chdir("../")
     print("\n\nComputing main statistics on sequences: reads/merged/dereplicates/clusters\n"
-          "-------> infiles/Stats_options_1d.txt:")
+          "-------> infiles/Stats_option_1d.txt:")
     with open("infiles/Stats_option_1d.txt", "w") as outfile:
         outfile.write("With option 1d, parameters set to:\n\n"
                       f"Directory = {current_dir}\n"
@@ -1183,9 +1183,9 @@ def trim_2_1():
             trim_left = input("-->ERROR: enter an integer corresponding to the length of the left primer (e.g. 20): ")
         trim_right = input(f"\nWhat is the number of bp of the right primer for {loc2trim}? (e.g. 22): ")
         while trim_right == "" or trim_right.isnumeric() is False:
-            trim_right = input("-->ERROR: enter an integer corresponding to the length of the right primer (e.g. 20): ")
+            trim_right = input("-->ERROR: enter an integer corresponding to the length of the right primer (e.g. 22): ")
         ts = input(f"\nWhat THRESHOLD do you want to use for this locus {loc2trim}?\n"
-                   f"Example: if you want to keep only the clusters those abundance (size) is greater than 5%\n"
+                   f"Example: if you want to keep only the clusters whose abundance (size) is greater than 5%\n"
                    f"of the sum of sizes for each sample with {loc2trim}, enter 0.05: ")
         while ts not in list_float_0_1:
             ts = input("-->ERROR: THRESHOLD format is not valid, it must be number between 0 and 1\n"
@@ -1213,10 +1213,10 @@ def trim_2_1():
             subprocess.run([shellCmd, "./trim-select." + scriptExt])
             selected = open('./' + sample + '_select.fas', 'r')
             nb_selected = selected.read().count('>')
-            stat_2_1.writelines(f"\tNumber of selected clusters {sample} = {nb_selected}\n\n")
+            stat_2_1.writelines(f"\tNumber of selected clusters for sample {sample}: {nb_selected}\n\n")
             sys.stdout.write(f"\n\nSum of sizes for {sample} at locus {loc2trim} = {a}\n")
             sys.stdout.write(f"The sizes > {b} were conserved\n")
-            sys.stdout.write(f"The number of selected clusters of {sample} = {nb_selected}\n\n")
+            sys.stdout.write(f"Number of selected clusters for sample {sample}: {nb_selected}\n")
             os.remove("tmp")
             os.remove("trim-select." + scriptExt)
         os.chdir('../')
@@ -1249,10 +1249,10 @@ def trim_2_2():
 
         trim_right = input(f"\nWhat is the number of bp of the right primer for {loc2trim}? (e.g. 22): ")
         while trim_right == "" or trim_right.isnumeric() is False:
-            trim_right = input("-->ERROR: enter an integer corresponding to the length of the right primer (e.g. 20): ")
+            trim_right = input("-->ERROR: enter an integer corresponding to the length of the right primer (e.g. 22): ")
 
         ts = input(f"\nWhat THRESHOLD do you want to use for this locus {loc2trim}?\n"
-                   f"Example: if you want to keep only the clusters those abundance (size) is greater than 5%\n"
+                   f"Example: if you want to keep only the clusters whose abundance (size) is greater than 5%\n"
                    f" of the sum of sizes for each sample with {loc2trim}, enter 0.05: ")
         while ts not in list_float_0_1:
             ts = input("-->ERROR: THRESHOLD format is not valid, it must be number between 0 and 1\n"
@@ -1280,10 +1280,10 @@ def trim_2_2():
             subprocess.run([shellCmd, "./trim-select." + scriptExt])
             selected = open('./' + sample + '_R1_select.fas', 'r')
             nb_selected = selected.read().count('>')
-            stat_2_2.writelines(f"\tNumber of selected clusters {sample} = {nb_selected}\n\n")
+            stat_2_2.writelines(f"\tNumber of selected clusters for sample {sample}: {nb_selected}\n\n")
             sys.stdout.write(f"\nSum of sizes for {sample} at locus {loc2trim} = {a}\n")
             sys.stdout.write(f"The sizes > {b} were conserved\n")
-            sys.stdout.write(f"The number of selected clusters of {sample} = {nb_selected}\n\n")
+            sys.stdout.write(f"Number of selected clusters for sample {sample}: {nb_selected}\n")
             os.remove("tmp")
             os.remove("trim-select." + scriptExt)
         os.chdir('../')
@@ -1317,7 +1317,7 @@ def trim_2_3():
             trim_left = input("-->ERROR: enter an integer corresponding to the length of the left primer (e.g. 20): ")
         trim_right = input(f"\nWhat is the number of bp of the right primer for {loc2trim}? (e.g. 22): ")
         while trim_right == "" or trim_right.isnumeric() is False:
-            trim_right = input("-->ERROR: enter an integer corresponding to the length of the right primer (e.g. 20): ")
+            trim_right = input("-->ERROR: enter an integer corresponding to the length of the right primer (e.g. 22): ")
         stat_2_3 = open(f"../infiles/Stats_option_2.3.txt", "a")
         stat_2_3.write(f"\n{loc2trim}: trimmed of {trim_left} bp (left) and {trim_right} "
                        f"bp (right)\n")
@@ -1328,7 +1328,7 @@ def trim_2_3():
                 orient = input(f"\n-->ERROR: sample name '{orient}' is not valid, please enter a valid name\n"
                                f"among {samples}: ")
             ts = input(f"\nWhat THRESHOLD you want for sample {orient} on locus {loc2trim}\n"
-                       f"Example: if you want to keep only the clusters those abundance (size) of {orient}\n "
+                       f"Example: if you want to keep only the clusters whose abundance (size) of {orient}\n "
                        f"is greater than 5% of the sum of sizes for this sample with {loc2trim}, enter 0.05: ")
             while ts not in list_float_0_1:
                 ts = input("-->ERROR: THRESHOLD format is not valid, it must be number between 0 and 1\n"
@@ -1352,10 +1352,10 @@ def trim_2_3():
             subprocess.run([shellCmd, "./trim-select." + scriptExt])
             selected = open("./" + orient + "_select.fas", "r")
             nb_selected = selected.read().count(">")
-            stat_2_3.writelines(f"\tNumber of selected clusters for {orient} = {nb_selected}\n\n")
+            stat_2_3.writelines(f"\tNumber of selected clusters for {orient}: {nb_selected}\n\n")
             sys.stdout.write(f"\nSum of sizes for {orient} = {a}\n")
             sys.stdout.write(f"The sizes > {b} were conserved\n")
-            sys.stdout.write(f"The number of selected clusters of {orient} = {nb_selected}\n")
+            sys.stdout.write(f"Number of selected clusters for sample {orient}: {nb_selected}\n")
             os.remove("tmp")
             os.remove("trim-select." + scriptExt)
             orient = input(f"\nWhich NEW sample do you want to trim\n"
@@ -1392,7 +1392,7 @@ def trim_2_4():
             trim_left = input("-->ERROR: enter an integer corresponding to the length of the left primer (e.g. 20): ")
         trim_right = input(f"\nWhat is the number of bp of the right primer for {loc2trim}? (e.g. 22): ")
         while trim_right == "" or trim_right.isnumeric() is False:
-            trim_right = input("-->ERROR: enter an integer corresponding to the length of the right primer (e.g. 20): ")
+            trim_right = input("-->ERROR: enter an integer corresponding to the length of the right primer (e.g. 22): ")
         stat_2_4 = open(f"../infiles/Stats_option_2.4.txt", "a")
         stat_2_4.write(f"\n{loc2trim}: trimmed of {trim_left} bp (left) and {trim_right} "
                            f"bp (right)\n")
@@ -1403,7 +1403,7 @@ def trim_2_4():
                 orient = input(f"\n-->ERROR: sample name '{orient}' is not valid, please enter a valid name\n"
                                f"among {samples}: ")
             ts = input(f"\nWhat THRESHOLD you want for sample {orient} on locus {loc2trim}\n"
-                       f"Example: if you want to keep only the clusters those abundance (size) of {orient}\n "
+                       f"Example: if you want to keep only the clusters whose abundance (size) of {orient}\n "
                        f"is greater than 5% of the sum of sizes for this sample with {loc2trim}, enter 0.05: ")
             while ts not in list_float_0_1:
                 ts = input("-->ERROR: THRESHOLD format is not valid, it must be number between 0 and 1\n"
@@ -1427,10 +1427,10 @@ def trim_2_4():
             subprocess.run([shellCmd, "./trim-select." + scriptExt])
             selected = open("./" + orient + "_R1_select.fas", "r")
             nb_selected = selected.read().count(">")
-            stat_2_4.writelines(f"\tNumber of selected clusters for {orient} = {nb_selected}\n\n")
+            stat_2_4.writelines(f"\tNumber of selected clusters for {orient}: {nb_selected}\n\n")
             sys.stdout.write(f"\nSum of sizes for {orient} = {a}\n")
             sys.stdout.write(f"The sizes > {b} were conserved\n")
-            sys.stdout.write(f"The number of selected clusters of {orient} = {nb_selected}\n")
+            sys.stdout.write(f"Number of selected clusters for sample {orient}: {nb_selected}\n")
             os.remove("tmp")
             os.remove("trim-select." + scriptExt)
             orient = input(f"\nWhich NEW sample do you want to trim\n"
@@ -1497,7 +1497,7 @@ if __name__ == "__main__":
                       "1b -> Re-analyze only one locus of paired-end amplicon (merged reads), modifying parameters\n"
                       "1c -> Re-analyze only one locus of single-end amplicon (R1 only), modifying parameters\n"
                       "1d -> Re-analyse only one sample, modifying parameters\n"
-                      "2  -> SELECTION OF MINIMUM SIZES ACCORDING TO THRESHOLDS SET BY THE USER\n"
+                      "2  -> SELECTION OF MINIMUM SIZES ACCORDING TO USER-DEFINED THRESHOLDS\n"
                       "3  -> CLUSTERING OF ALL SAMPLES BY LOCUS FOR PHYLOGENETIC ANALYZES\n"
                       "end -> Exit the program\n\n"
                       " ********* Type 0, 1, 1a, 1b, 1c, 1d, 2, 3 or end: ")
@@ -1626,7 +1626,7 @@ if __name__ == "__main__":
             stats_1d()
             sys.stdout.write("\n\n**** RUN OPTION 1d IS COMPLETE ****\n\n")
 
-        # SELECTION OF MINIMUM SIZES ACCORDING TO THRESHOLDS SET BY THE USER
+        # SELECTION OF MINIMUM SIZES ACCORDING TO USER-DEFINED THRESHOLDS
         if rmenu == '2':
             submenu = input("\n***************** MINIMUM SIZE SELECTION MENU *****************\n\n"
                             "1- Apply the SAME size threshold for ALL SAMPLES for the loci based on PAIRED-END reads "
