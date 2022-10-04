@@ -766,29 +766,29 @@ def param_1x():  # menu1 12
     """
     global dir_fastq, sample_user, minsize_user, rmenu
     if rmenu == '1':
-        with open("outputs/my_parameters_option_1.txt", "w") as out1:
+        with open("outputs/parameters_option_1.txt", "w") as out1:
             out1.write(f"Run option 1: {date}\n{dir_fastq}\n{fastqr1_user}\n{fastqr2_user}\n{loci1_user}\n"
                        f"{loci2_user}\n{sample_user}\n{minsize_user}\n{minseqlength}\n{alpha}\n{identity}\n"
                        f"Samples used = {samples}\nLoci paired-end used = {loci1s}\nLoci single-end (R1) "
                        f"used = {loci2s}\n")
     elif rmenu == '1a':
-        with open("outputs/my_parameters_option_1a.txt", "w") as out2:
+        with open("outputs/parameters_option_1a.txt", "w") as out2:
             out2.write(f"Run option 1a: {date}\n{dir_fastq}\n{fastqr1_user}\n{fastqr2_user}\n{loci1_user}\n"
                        f"{loci2_user}\n{sample_user}\n{minsize_user}\n{minseqlength}\n{alpha}\n{identity}\n"
                        f"Samples used = {samples}\nLoci paired-end used = {loci1s}\nLoci single-end (R1) "
                        f"used = {loci2s}\n")
     elif rmenu == '1b':
-        with open("outputs/my_parameters_option_1b.txt", "w") as out3:
+        with open("outputs/parameters_option_1b.txt", "w") as out3:
             out3.write(f"Run option 1b: {date}\n{dir_fastq}\n{fastqr1_user}\n{fastqr2_user}\n{loc_sel1}\n"
                        f"{sample_user}\n{minsize_user}\n{minseqlength}\n{alpha}\n{identity}\n")
 
     elif rmenu == '1c':
-        with open("outputs/my_parameters_option_1c.txt", "w") as out4:
+        with open("outputs/parameters_option_1c.txt", "w") as out4:
             out4.writelines(f"Run option 1c: {date}\n{dir_fastq}\n{fastqr1_user}\n{fastqr2_user}\n{loc_sel2}\n"
                             f"{sample_user}\n{minsize_user}\n{minseqlength}\n{alpha}\n{identity}\n")
 
     elif rmenu == '1d':
-        with open("outputs/my_parameters_option_1d.txt", "w") as out5:
+        with open("outputs/parameters_option_1d.txt", "w") as out5:
             out5.writelines(f"Run option 1d: {date}\n{dir_fastq}\n{fastqr1_user}\n{fastqr2_user}\n{sam_sel}\n"
                             f"{minsize_user}\n{minseqlength}\n{alpha}\n{identity}\n")
 
@@ -798,7 +798,7 @@ def prev_param():  # menu1a 2
     """
     global fastqr1s, fastqr2s, loci1s, loci2s, samples
     os.chdir(current_dir)
-    with open("outputs/my_parameters_option_1.txt", "r") as infile:
+    with open("outputs/parameters_option_1.txt", "r") as infile:
         lines = infile.read().splitlines()
         global dir_fastq
         dir_fastq = lines[1]
@@ -834,8 +834,8 @@ def prev_param():  # menu1a 2
 # STATISTICS ON FASTQ FILES ###########################################################################################
 def quality():
     """Tests the quality of each 'fastq' file by the VSEARCH command:
-    vsearch --fastq_eestats2 ../tmp_files/fastqF-R1 --output ../tmp_files/SN_R1info.txt
-    vsearch --fastq_eestats2 ../tmp_files/fastqF-R2 --output ../tmp_files/SN_R2info.txt
+    vsearch --fastq_eestats2 ../tmp_files/fastqF-R1 --output ../tmp_files/SN_R1_quality.txt
+    vsearch --fastq_eestats2 ../tmp_files/fastqF-R2 --output ../tmp_files/SN_R2_quality.txt
 
     fastqF = fastq file name
     SN = sample name
@@ -851,7 +851,7 @@ def quality():
             i = i + 1
             out1.write(main_stream_message(f' {sample}...'))
             out1.write(f"vsearch --fastq_eestats2 {dir_fastq}{fileSep}{fastqr1} --output "
-                       f"../outputs/{sample}_R1info.txt" + localErrorOnStopCmd + "\n")
+                       f"../outputs/{sample}_R1_quality.txt" + localErrorOnStopCmd + "\n")
         out1.write(main_stream_message(f'\n\n'))
 
     with open("scripts/infor2." + scriptExt, "w") as out2:
@@ -864,7 +864,7 @@ def quality():
             i = i + 1
             out2.write(main_stream_message(f' {sample}...'))
             out2.write(f"vsearch --fastq_eestats2 {dir_fastq}{fileSep}{fastqr2} --output "
-                       f"../outputs/{sample}_R2info.txt" + localErrorOnStopCmd + "\n")
+                       f"../outputs/{sample}_R2_quality.txt" + localErrorOnStopCmd + "\n")
         out2.write(main_stream_message(f'\n\n'))
 
 
@@ -1528,7 +1528,7 @@ def runs_1x():
             exit(1)
         print(f"Run of option {rmenu} was correctly achieved")
         sys.stdout.write("\nThe run option 1e is complete\n"
-                         f"Statistical test files (...info.txt) are in\n"
+                         f"Statistical test files (*_quality.txt) are in\n"
                          f"Results in ---> {current_dir}/outputs\n\n")
         os.chdir(current_dir)
 
@@ -1958,13 +1958,15 @@ def trim_2x():
 def concat_3():
     """CLUSTERING OF ALL SAMPLES BY LOCUS FOR PHYLOGENETIC ANALYZES PAIRED_END
     """
+    os.system("cls" if winOS else "clear")
     global alloci, samples, loc2cat
     nb_samples = len(samples)
     alloci = loci1s + list(set(loci2s) - set(loci1s))
     if os.path.exists("outputs/Stats_option_3.txt"):
         os.remove("outputs/Stats_option_3.txt")
     while True:
-        loc2cat = input("\nFor which (new) LOCUS do you want to cluster all the sample sequences\n"
+        loc2cat = input("\n----- CONCATENATION OF ALL SAMPLES BY LOCUS FOR PHYLOGENETIC ANALYZES -----\n"
+                        f"\nFor which (new) LOCUS do you want to cluster all sample sequences?\n"
                         f"among {alloci}?\n"
                         f"OR 'end' 'home' 'exit': ")
         while loc2cat not in alloci and loc2cat not in ["end", "home", "exit"]:
@@ -1997,7 +1999,7 @@ def concat_3():
 
 def prevent():
     global current_dir
-    if os.path.isfile(f"{current_dir}/outputs/my_parameters_option_1.txt") is False:
+    if os.path.isfile(f"{current_dir}/outputs/parameters_option_1.txt") is False:
         sys.stdout.write("\nYou have to previously run mandatory OPTION 1 before running this option \n")
         q = input("\nDo you want to run OPTION 1?, reply 'yes' 'no': ")
         if q == 'yes':
@@ -2009,8 +2011,9 @@ def prevent():
 
 
 def main_menu1():
+    os.system("cls" if winOS else "clear")
     global rmenu
-    rmenu = input("\nBASIC ANALYSIS - only option 1 is strictly mandatory\n\n"
+    rmenu = input("\n----- BASIC ANALYSIS - only option 1 is strictly mandatory -----\n\n"
                   "1  -> NEW COMPLETE ANALYSIS (mandatory)\n"
                   "1a -> Re-analyze all loci, from the clustering step, modifying parameters\n"
                   "1b -> Re-analyze only one locus of paired-end amplicon (merged reads), modifying parameters\n"
@@ -2044,23 +2047,24 @@ def main_menu1():
 
 
 def main_menu2():
+    os.system("cls" if winOS else "clear")
     global rmenu
-    rmenu = input("\nSELECTION OF MINIMUM SIZES ACCORDING TO USER-DEFINED THRESHOLDS\n\n"
-                  "2a -> Apply the SAME size threshold for ALL SAMPLES for the loci based on PAIRED-END reads"
+    rmenu = input("\n----- SELECTION OF MINIMUM SEQUENCE ABUNDANCES ACCORDING TO USER-DEFINED THRESHOLDS -----\n\n"
+                  "2a -> Apply the SAME size threshold for ALL SAMPLES for the loci based on PAIRED-END reads "
                   "(R1/R2 merged)\n"
                   "\ti.e. you want to keep only sequences whose abundance (size)\n"
                   "\tis greater than x% of the total number of sequences for a given sample.\n"
                   "\tThis threshold of x% can be chosen for each locus.\n\n"
                   "2b -> Apply the SAME size threshold for ALL SAMPLES for the loci based on SINGLE-END reads "
                   "(R1 only)\n"
-                  "\tidem than option 1 but only using the R1 reads instead of merged ones.\n\n"
+                  "\tsame as option 1 but only using the R1 reads instead of merged ones.\n\n"
                   "2c -> Apply a SPECIFIC size threshold for EACH SAMPLE, for the loci based on PAIRED-END reads "
                   "(R1/R2 merged)\n"
-                  "\t.e. you want to modulate the threshold of x% by locus but also by sample\n"
+                  "\ti.e. you want to modulate the threshold of x% by locus but also by sample\n"
                   "\twithin a particular locus.\n\n"
                   "2d -> Apply a SPECIFIC size threshold for EACH SAMPLE, for the loci based on SINGLE-END reads "
                   "(R1 only)\n"
-                  "\tidem than option 3 but only using the R1 sequences instead of merged ones.\n\n"
+                  "\tsame as option 2c but only using the R1 sequences instead of merged ones.\n\n"
                   "\nEnter '2a' '2b' '2c' '2d' to run analysis\n"
                   "OR 'end' 'home' 'exit': ")
     while rmenu not in ['2a', '2b', '2c', '2d', 'end', 'home', 'exit']:
@@ -2243,12 +2247,14 @@ def rerun():
 # Main menu
 #######################################################################################################################
 def main():
+    os.system("cls" if winOS else "clear")
+
     global menu
     sys.stdout.write("-------------------- MAIN MENU --------------------\n"
                      "\nValidate without typing anything enters the default value, if any\n"
                      "Entering 'end' returns to the program upper level, if any\n"
                      "Entering 'home' returns to this main menu\n"
-                     "Entering  'exit' leaves the program\n\n")
+                     "Entering 'exit' leaves the program\n\n")
     menu = input("\n1 -> BASIC ANALYSES\n\n"
                  "2 -> SELECTION OF MINIMUM SEQUENCE ABUNDANCES ACCORDING TO USER-DEFINED THRESHOLDS\n\n"
                  "3 -> CONCATENATION OF ALL SAMPLES BY LOCUS FOR PHYLOGENETIC ANALYZES\n\n"
