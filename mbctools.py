@@ -35,6 +35,7 @@ import subprocess
 import re
 import glob
 import numpy as np
+import configparser
 
 
 # BEFORE ANYTHING ELSE: MAKE SURE VSEARCH IS INSTALLED ################################################################
@@ -127,19 +128,19 @@ def folders():
 
     sys.stdout.write("")  # loci folders
     for loci1 in loci1s:
-        path = os.path.join(current_dir + "./loci", loci1)
+        path = os.path.join(current_dir + "/loci", loci1)
         if Path(path).is_dir():
             sys.stdout.write(f"\nThe folder {loci1} already exists and will be used in the current analysis")
         else:
-            os.chdir(f"{current_dir}./loci")
+            os.chdir(f"{current_dir}/loci")
             os.mkdir(path)
 
     for loci2 in loci2s:
-        path = os.path.join(current_dir + "./loci", loci2)
+        path = os.path.join(current_dir + "/loci", loci2)
         if Path(path).is_dir():
             sys.stdout.write(f"\nThe folder {loci2} already exists and will be used in the current analysis")
         else:
-            os.chdir(f"{current_dir}./loci")
+            os.chdir(f"{current_dir}/loci")
             os.mkdir(path)
 
 
@@ -796,32 +797,71 @@ def param_1x():  # menu1 12
     """
     global dir_fastq, sample_user, minsize_user, rmenu
     os.chdir(current_dir)
-    if rmenu == '1':
-        with open("outputs/parameters_option_1.txt", "w") as out1:
-            out1.write(f"Run option 1: {date}\n{dir_fastq}\n{fastqr1_user}\n{fastqr2_user}\n{loci1_user}\n"
-                       f"{loci2_user}\n{sample_user}\n{minsize_user}\n{minseqlength}\n{alpha}\n{identity}\n"
-                       f"Samples used = {samples}\nLoci paired-end used = {loci1s}\nLoci single-end (R1) "
-                       f"used = {loci2s}\n")
-    elif rmenu == '1a':
-        with open("outputs/parameters_option_1a.txt", "w") as out2:
-            out2.write(f"Run option 1a: {date}\n{dir_fastq}\n{fastqr1_user}\n{fastqr2_user}\n{loci1_user}\n"
-                       f"{loci2_user}\n{sample_user}\n{minsize_user}\n{minseqlength}\n{alpha}\n{identity}\n"
-                       f"Samples used = {samples}\nLoci paired-end used = {loci1s}\nLoci single-end (R1) "
-                       f"used = {loci2s}\n")
+
+    config = configparser.ConfigParser()
+    contents = {}
+    contents["date"] = date
+    contents["dir_fastq"] = dir_fastq
+    contents["fastqr1_user"] = fastqr1_user
+    contents["fastqr2_user"] = fastqr2_user
+    contents["minsize_user"] = minsize_user
+    contents["minseqlength"] = minseqlength
+    contents["alpha"] = alpha
+    contents["identity"] = identity
+    if rmenu == '1' or rmenu == '1a':
+        contents["loci1_user"] = loci1_user
+        contents["loci2_user"] = loci2_user
+        contents["sample_user"] = sample_user
+        contents["alpha"] = alpha
+        contents["identity"] = identity
+        contents["samples"] = samples
+        contents["loci1s"] = loci1s
+        contents["loci2s"] = loci2s
     elif rmenu == '1b':
-        with open("outputs/parameters_option_1b.txt", "w") as out3:
-            out3.write(f"Run option 1b: {date}\n{dir_fastq}\n{fastqr1_user}\n{fastqr2_user}\n{loc_sel1}\n"
-                       f"{sample_user}\n{minsize_user}\n{minseqlength}\n{alpha}\n{identity}\n")
-
+        contents["loc_sel1"] = loci1_user
+        contents["sample_user"] = sample_user
     elif rmenu == '1c':
-        with open("outputs/parameters_option_1c.txt", "w") as out4:
-            out4.writelines(f"Run option 1c: {date}\n{dir_fastq}\n{fastqr1_user}\n{fastqr2_user}\n{loc_sel2}\n"
-                            f"{sample_user}\n{minsize_user}\n{minseqlength}\n{alpha}\n{identity}\n")
-
+        contents["loc_sel2"] = loc_sel2
+        contents["sample_user"] = sample_user
     elif rmenu == '1d':
-        with open("outputs/parameters_option_1d.txt", "w") as out5:
-            out5.writelines(f"Run option 1d: {date}\n{dir_fastq}\n{fastqr1_user}\n{fastqr2_user}\n{sam_sel}\n"
-                            f"{minsize_user}\n{minseqlength}\n{alpha}\n{identity}\n")
+        contents["sam_sel"] = sam_sel
+
+    config['option' + rmenu] = contents
+    with open("outputs/parameters_option_" + rmenu + ".cfg", 'w') as configfile:
+        config.write(configfile)
+
+
+# def OLD_param_1x():  # menu1 12
+#     """ Creates a file with one parameter by line for options 1x
+#     """
+#     global dir_fastq, sample_user, minsize_user, rmenu
+#     os.chdir(current_dir)
+#     if rmenu == '1':
+#         with open("outputs/parameters_option_1.txt", "w") as out1:
+#             out1.write(f"Run option 1: {date}\n{dir_fastq}\n{fastqr1_user}\n{fastqr2_user}\n{loci1_user}\n"
+#                        f"{loci2_user}\n{sample_user}\n{minsize_user}\n{minseqlength}\n{alpha}\n{identity}\n"
+#                        f"Samples used = {samples}\nLoci paired-end used = {loci1s}\nLoci single-end (R1) "
+#                        f"used = {loci2s}\n")
+#     elif rmenu == '1a':
+#         with open("outputs/parameters_option_1a.txt", "w") as out2:
+#             out2.write(f"Run option 1a: {date}\n{dir_fastq}\n{fastqr1_user}\n{fastqr2_user}\n{loci1_user}\n"
+#                        f"{loci2_user}\n{sample_user}\n{minsize_user}\n{minseqlength}\n{alpha}\n{identity}\n"
+#                        f"Samples used = {samples}\nLoci paired-end used = {loci1s}\nLoci single-end (R1) "
+#                        f"used = {loci2s}\n")
+#     elif rmenu == '1b':
+#         with open("outputs/parameters_option_1b.txt", "w") as out3:
+#             out3.write(f"Run option 1b: {date}\n{dir_fastq}\n{fastqr1_user}\n{fastqr2_user}\n{loc_sel1}\n"
+#                        f"{sample_user}\n{minsize_user}\n{minseqlength}\n{alpha}\n{identity}\n")
+
+#     elif rmenu == '1c':
+#         with open("outputs/parameters_option_1c.txt", "w") as out4:
+#             out4.writelines(f"Run option 1c: {date}\n{dir_fastq}\n{fastqr1_user}\n{fastqr2_user}\n{loc_sel2}\n"
+#                             f"{sample_user}\n{minsize_user}\n{minseqlength}\n{alpha}\n{identity}\n")
+
+#     elif rmenu == '1d':
+#         with open("outputs/parameters_option_1d.txt", "w") as out5:
+#             out5.writelines(f"Run option 1d: {date}\n{dir_fastq}\n{fastqr1_user}\n{fastqr2_user}\n{sam_sel}\n"
+#                             f"{minsize_user}\n{minseqlength}\n{alpha}\n{identity}\n")
 
 
 def prev_param():  # menu1a 2
@@ -829,20 +869,23 @@ def prev_param():  # menu1a 2
     """
     global fastqr1s, fastqr2s, loci1s, loci2s, samples
     os.chdir(current_dir)
-    with open("outputs/parameters_option_1.txt", "r") as infile:
-        lines = infile.read().splitlines()
-        global dir_fastq
-        dir_fastq = lines[1]
-        global fastqr1_user
-        fastqr1_user = lines[2]
-        global fastqr2_user
-        fastqr2_user = lines[3]
-        global loci1_user
-        loci1_user = lines[4]
-        global loci2_user
-        loci2_user = lines[5]
-        global sample_user
-        sample_user = lines[6]
+
+    config = configparser.ConfigParser()
+    config.read("outputs/parameters_option_1.cfg")
+    contents = config['option1']
+
+    global dir_fastq
+    dir_fastq = contents["dir_fastq"]
+    global fastqr1_user
+    fastqr1_user = contents["fastqr1_user"]
+    global fastqr2_user
+    fastqr2_user = contents["fastqr2_user"]
+    global loci1_user
+    loci1_user = contents["loci1_user"]
+    global loci2_user
+    loci2_user = contents["loci2_user"]
+    global sample_user
+    sample_user = contents["sample_user"]
 
     with open(fastqr1_user, "r") as out1:
         fastqr1s = out1.read().splitlines()
@@ -860,6 +903,45 @@ def prev_param():  # menu1a 2
         samples = out5.read().splitlines()
 
     return fastqr1s, fastqr2s, loci1s, loci2s, samples
+
+
+# def OLD_prev_param():  # menu1a 2
+#     """ Recalls global variables for different options
+#     """
+#    global fastqr1s, fastqr2s, loci1s, loci2s, samples
+#     os.chdir(current_dir)
+    # with open("outputs/parameters_option_1.txt", "r") as infile:
+    #     lines = infile.read().splitlines()
+    #     global dir_fastq
+    #     dir_fastq = lines[1]
+    #     global fastqr1_user
+    #     fastqr1_user = lines[2]
+    #     global fastqr2_user
+    #     fastqr2_user = lines[3]
+    #     global loci1_user
+    #     loci1_user = lines[4]
+    #     global loci2_user
+    #     loci2_user = lines[5]
+    #     global sample_user
+    #     sample_user = lines[6]
+
+    # with open(fastqr1_user, "r") as out1:
+    #     fastqr1s = out1.read().splitlines()
+
+    # with open(fastqr2_user, "r") as out2:
+    #     fastqr2s = out2.read().splitlines()
+
+    # with open(loci1_user, "r") as out3:
+    #     loci1s = out3.read().splitlines()
+
+    # with open(loci2_user, "r") as out4:
+    #     loci2s = out4.read().splitlines()
+
+    # with open(sample_user, "r") as out5:
+    #     samples = out5.read().splitlines()
+
+    # return fastqr1s, fastqr2s, loci1s, loci2s, samples
+
 
 
 # STATISTICS ON FASTQ FILES ###########################################################################################
@@ -1474,7 +1556,7 @@ def runs_1x():
                 "./chimera_one_sample_1d." + scriptExt + "' '"
                 "./loci_merged_1d." + scriptExt + "' '"
                 "./loci_R1_1d." + scriptExt + "' '"
-                "./orient_merged_1." + scriptExt + "' '"
+                "./orient_merged_1d." + scriptExt + "' '"
                 "./orient_R1_1d." + scriptExt + "')\n" +
                 'for script in "${scriptArray[@]}"\n' +
                 '    do\n' +
@@ -2022,7 +2104,7 @@ def concat_3():
 
 def prevent():
     global current_dir
-    if os.path.isfile(f"{current_dir}/outputs/parameters_option_1.txt") is False:
+    if os.path.isfile(f"{current_dir}/outputs/parameters_option_1.cfg") is False:
         sys.stdout.write("\nYou have to previously run mandatory OPTION 1 before running this option \n")
         q = input("\nDo you want to run OPTION 1?, reply 'yes' 'no': ")
         if q == 'yes':
