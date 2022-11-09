@@ -34,7 +34,6 @@ import platform
 import subprocess
 import re
 import glob
-import numpy as np
 import configparser
 
 
@@ -53,7 +52,6 @@ globalErrorOnStopCmd = "" if winOS else "set -e"
 localErrorOnStopCmd = "; If ($LASTEXITCODE -gt 0) { exit $LASTEXITCODE }" if winOS else ""
 date = datetime.datetime.now()
 current_dir = os.getcwd()
-liste = str(np.arange(0, 1, 0.001))
 
 global loci1s, loci2s, loci1_user, loci2_user, dir_fastq, fastqr1_user, fastqr1s, fastqr2_user, fastqr2s, sample_user, \
     samples, alpha, identity, loc_sel1, loc_sel2, rmenu, sam_sel, minsize_user, minseqlength, loc2trim, trim_left, \
@@ -127,18 +125,10 @@ def folders():
         os.mkdir(path)
 
     sys.stdout.write("")  # loci folders
-    for loci1 in loci1s:
-        path = os.path.join(current_dir + "/loci", loci1)
+    for locus in list(set(loci1s) | set(loci2s)):
+        path = os.path.join(current_dir + "/loci", locus)
         if Path(path).is_dir():
-            sys.stdout.write(f"\nThe folder {loci1} already exists and will be used in the current analysis")
-        else:
-            os.chdir(f"{current_dir}/loci")
-            os.mkdir(path)
-
-    for loci2 in loci2s:
-        path = os.path.join(current_dir + "/loci", loci2)
-        if Path(path).is_dir():
-            sys.stdout.write(f"\nThe folder {loci2} already exists and will be used in the current analysis")
+            sys.stdout.write(f"\nThe folder loci/{locus} already exists and will be used in the current analysis")
         else:
             os.chdir(f"{current_dir}/loci")
             os.mkdir(path)
@@ -344,7 +334,7 @@ def in_alpha():  # menu1 9# menu1a 5
 
 
 def in_identity():  # menu1 10# menu1a 6
-    global identity, liste
+    global identity
     identity = input("\nEnter identity parameter to BLAST the clusters against references\n"
                      "i.e. the identity percentage, enter an integer from 0 to 100\n"
                      "default = 70: ")
@@ -700,7 +690,7 @@ def in_trim_right():
 
 
 def in_ts():
-    global ts, ts1, liste, loc2trim2a, loc2trim2b, loc2trim2c, loc2trim2d
+    global ts, ts1, loc2trim2a, loc2trim2b, loc2trim2c, loc2trim2d
     if rmenu == "2a":
         ts = input(f"\nEnter the THRESHOLD do you want to use for this locus {loc2trim2a}?\n"
                    f"Example: if you want to keep only the clusters whose abundance (size) is greater than 5%\n"
@@ -814,9 +804,6 @@ def param_1x():  # menu1 12
         contents["sample_user"] = sample_user
         contents["alpha"] = alpha
         contents["identity"] = identity
-        contents["samples"] = samples
-        contents["loci1s"] = loci1s
-        contents["loci2s"] = loci2s
     elif rmenu == '1b':
         contents["loc_sel1"] = loci1_user
         contents["sample_user"] = sample_user
@@ -826,53 +813,30 @@ def param_1x():  # menu1 12
     elif rmenu == '1d':
         contents["sam_sel"] = sam_sel
 
-    config['option' + rmenu] = contents
+    config['mbctools'] = contents
     with open("outputs/parameters_option_" + rmenu + ".cfg", 'w') as configfile:
         config.write(configfile)
 
 
-# def OLD_param_1x():  # menu1 12
-#     """ Creates a file with one parameter by line for options 1x
-#     """
-#     global dir_fastq, sample_user, minsize_user, rmenu
-#     os.chdir(current_dir)
-#     if rmenu == '1':
-#         with open("outputs/parameters_option_1.txt", "w") as out1:
-#             out1.write(f"Run option 1: {date}\n{dir_fastq}\n{fastqr1_user}\n{fastqr2_user}\n{loci1_user}\n"
-#                        f"{loci2_user}\n{sample_user}\n{minsize_user}\n{minseqlength}\n{alpha}\n{identity}\n"
-#                        f"Samples used = {samples}\nLoci paired-end used = {loci1s}\nLoci single-end (R1) "
-#                        f"used = {loci2s}\n")
-#     elif rmenu == '1a':
-#         with open("outputs/parameters_option_1a.txt", "w") as out2:
-#             out2.write(f"Run option 1a: {date}\n{dir_fastq}\n{fastqr1_user}\n{fastqr2_user}\n{loci1_user}\n"
-#                        f"{loci2_user}\n{sample_user}\n{minsize_user}\n{minseqlength}\n{alpha}\n{identity}\n"
-#                        f"Samples used = {samples}\nLoci paired-end used = {loci1s}\nLoci single-end (R1) "
-#                        f"used = {loci2s}\n")
-#     elif rmenu == '1b':
-#         with open("outputs/parameters_option_1b.txt", "w") as out3:
-#             out3.write(f"Run option 1b: {date}\n{dir_fastq}\n{fastqr1_user}\n{fastqr2_user}\n{loc_sel1}\n"
-#                        f"{sample_user}\n{minsize_user}\n{minseqlength}\n{alpha}\n{identity}\n")
-
-#     elif rmenu == '1c':
-#         with open("outputs/parameters_option_1c.txt", "w") as out4:
-#             out4.writelines(f"Run option 1c: {date}\n{dir_fastq}\n{fastqr1_user}\n{fastqr2_user}\n{loc_sel2}\n"
-#                             f"{sample_user}\n{minsize_user}\n{minseqlength}\n{alpha}\n{identity}\n")
-
-#     elif rmenu == '1d':
-#         with open("outputs/parameters_option_1d.txt", "w") as out5:
-#             out5.writelines(f"Run option 1d: {date}\n{dir_fastq}\n{fastqr1_user}\n{fastqr2_user}\n{sam_sel}\n"
-#                             f"{minsize_user}\n{minseqlength}\n{alpha}\n{identity}\n")
-
-
-def prev_param():  # menu1a 2
+def prev_param(paramConfigFile):  # menu1a 2
     """ Recalls global variables for different options
     """
     global fastqr1s, fastqr2s, loci1s, loci2s, samples
     os.chdir(current_dir)
 
     config = configparser.ConfigParser()
-    config.read("outputs/parameters_option_1.cfg")
-    contents = config['option1']
+    config.read(paramConfigFile if paramConfigFile is not None else "outputs/parameters_option_1.cfg")
+    contents = config['mbctools']
+
+    if paramConfigFile is not None:
+        global minsize_user
+        minsize_user = contents["minsize_user"]
+        global minseqlength
+        minseqlength = contents["minseqlength"]
+        global alpha
+        alpha = contents["alpha"]
+        global identity
+        identity = contents["identity"]
 
     global dir_fastq
     dir_fastq = contents["dir_fastq"]
@@ -903,45 +867,6 @@ def prev_param():  # menu1a 2
         samples = out5.read().splitlines()
 
     return fastqr1s, fastqr2s, loci1s, loci2s, samples
-
-
-# def OLD_prev_param():  # menu1a 2
-#     """ Recalls global variables for different options
-#     """
-#    global fastqr1s, fastqr2s, loci1s, loci2s, samples
-#     os.chdir(current_dir)
-    # with open("outputs/parameters_option_1.txt", "r") as infile:
-    #     lines = infile.read().splitlines()
-    #     global dir_fastq
-    #     dir_fastq = lines[1]
-    #     global fastqr1_user
-    #     fastqr1_user = lines[2]
-    #     global fastqr2_user
-    #     fastqr2_user = lines[3]
-    #     global loci1_user
-    #     loci1_user = lines[4]
-    #     global loci2_user
-    #     loci2_user = lines[5]
-    #     global sample_user
-    #     sample_user = lines[6]
-
-    # with open(fastqr1_user, "r") as out1:
-    #     fastqr1s = out1.read().splitlines()
-
-    # with open(fastqr2_user, "r") as out2:
-    #     fastqr2s = out2.read().splitlines()
-
-    # with open(loci1_user, "r") as out3:
-    #     loci1s = out3.read().splitlines()
-
-    # with open(loci2_user, "r") as out4:
-    #     loci2s = out4.read().splitlines()
-
-    # with open(sample_user, "r") as out5:
-    #     samples = out5.read().splitlines()
-
-    # return fastqr1s, fastqr2s, loci1s, loci2s, samples
-
 
 
 # STATISTICS ON FASTQ FILES ###########################################################################################
@@ -2199,16 +2124,26 @@ def main_menu3():
 
 
 def menu1():
-    in_dir_fastq()
-    in_fastqr1_user()
-    in_fastqr2_user()
-    in_loci1_user()
-    in_loci2_user()
-    in_sample_user()
-    in_minsize_user()
-    in_minseqlength()
-    in_alpha()
-    in_identity()
+    try: dir_fastq
+    except NameError: in_dir_fastq()
+    try: fastqr1_user
+    except NameError: in_fastqr1_user()
+    try: fastqr2_user
+    except NameError: in_fastqr2_user()
+    try: loci1_user
+    except NameError: in_loci1_user()
+    try: loci2_user
+    except NameError: in_loci2_user()
+    try: sample_user
+    except NameError: in_sample_user()
+    try: minsize_user
+    except NameError: in_minsize_user()
+    try: minseqlength
+    except NameError: in_minseqlength()
+    try: alpha
+    except NameError: in_alpha()
+    try: identity
+    except NameError: in_identity()
     folders()
     param_1x()
     merging()
@@ -2222,7 +2157,8 @@ def menu1():
     sys.stdout.write("\n\n")
     runs_1x()
     stats_1x()
-    rerun()
+    if len(sys.argv) == 0:
+        rerun()
 
 
 def menu1a():
@@ -2359,6 +2295,24 @@ def rerun():
 # Main menu
 #######################################################################################################################
 def main():
+
+    if len(sys.argv) > 1:
+        if os.path.isfile(sys.argv[1]):
+            try:
+                prev_param(sys.argv[1])
+                global rmenu
+                rmenu = "1"
+                menu1()
+                exit(0)
+            except KeyError:
+                sys.stderr.write("\nMissing parameter - ")
+                import traceback
+                traceback.print_exc(limit=0)
+                exit(1)
+        else:
+            sys.stdout.write(sys.argv[1] + " does not exist\n")
+            exit(1)
+
     os.system("cls" if winOS else "clear")
 
     global menu
