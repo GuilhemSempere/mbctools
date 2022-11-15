@@ -1550,8 +1550,7 @@ def runs_1x():
             exit(1)
         print(f"Run of option {rmenu} was correctly achieved")
         sys.stdout.write("\nThe run option 1e is complete\n"
-                         f"Statistical test files (*_quality.txt) are in\n"
-                         f"Results in ---> {current_dir}/outputs\n\n")
+                         f"Statistical test files (*_quality.txt) are located at ---> {current_dir}/outputs\n\n")
         os.chdir(current_dir)
 
 
@@ -2118,7 +2117,7 @@ def main_menu2():
 
 def main_menu3():
     prevent()
-    prev_param()
+    prev_param(None)
     concat_3()
     rerun()
 
@@ -2163,7 +2162,7 @@ def menu1():
 
 def menu1a():
     prevent()
-    prev_param()
+    prev_param(None)
     in_minsize_user()
     in_minseqlength()
     in_alpha()
@@ -2181,7 +2180,7 @@ def menu1a():
 
 def menu1b():
     prevent()
-    prev_param()
+    prev_param(None)
     in_loc_sel_merged()
     in_minsize_user()
     in_minseqlength()
@@ -2199,7 +2198,7 @@ def menu1b():
 
 def menu1c():
     prevent()
-    prev_param()
+    prev_param(None)
     in_loc_sel_r1()
     in_minsize_user()
     in_minseqlength()
@@ -2216,7 +2215,7 @@ def menu1c():
 
 def menu1d():
     prevent()
-    prev_param()
+    prev_param(None)
     in_sam_sel()
     in_minsize_user()
     in_minseqlength()
@@ -2234,7 +2233,7 @@ def menu1d():
 
 def menu1e():
     prevent()
-    prev_param()
+    prev_param(None)
     quality()
     runs_1x()
     rerun()
@@ -2242,21 +2241,21 @@ def menu1e():
 
 def menu2a():
     prevent()
-    prev_param()
+    prev_param(None)
     trim_2x()
     rerun()
 
 
 def menu2b():
     prevent()
-    prev_param()
+    prev_param(None)
     trim_2x()
     rerun()
 
 
 def menu2c():
     prevent()
-    prev_param()
+    prev_param(None)
     if os.path.exists("outputs/Stats_option_2c.txt"):
         os.remove("outputs/Stats_option_2c.txt")
     trim_2x()
@@ -2265,7 +2264,7 @@ def menu2c():
 
 def menu2d():
     prevent()
-    prev_param()
+    prev_param(None)
     if os.path.exists("outputs/Stats_option_2d.txt"):
         os.remove("outputs/Stats_option_2d.txt")
     trim_2x()
@@ -2274,7 +2273,7 @@ def menu2d():
 
 def menu3():
     prevent()
-    prev_param()
+    prev_param(None)
     concat_3()
     rerun()
 
