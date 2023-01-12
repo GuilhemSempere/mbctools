@@ -1,20 +1,32 @@
 #!/usr/bin/python3
 
-"""This Python program is a toolkit to make the use of VSEARCH easier and interactive, to analyze
-metabarcoding NGS data in the best conditions. It proposes the following MAIN MENU:
-0  -> Initial and optional quality checking of fastq files (slow - be patient!)
-1  -> NEW COMPLETE ANALYSIS
+"""Mbctools a multi-platform toolkit to make the use of VSEARCH easier and interactive, to analyze
+metabarcoding data in the best conditions. It proposes the following MAIN MENU:
+
+1 -> BASIC ANALYZES
+2 -> SELECTION OF MINIMUM SEQUENCE ABUNDANCES ACCORDING TO USER-DEFINED THRESHOLDS
+3 -> CONCATENATION OF ALL SAMPLES BY LOCUS FOR PHYLOGENETIC ANALYZES
+
+The option 1 proposes the following submenu:
+
+1  -> NEW COMPLETE ANALYSIS (mandatory)
 1a -> Re-analyze all loci, from the clustering step, modifying parameters
 1b -> Re-analyze only one locus of paired-end amplicon (merged reads), modifying parameters
 1c -> Re-analyze only one locus of single-end amplicon (R1 only), modifying parameters
 1d -> Re-analyse only one sample, modifying parameters
-2  -> SELECTION OF MINIMUM SIZES ACCORDING TO USER-DEFINED THRESHOLDS
-3  -> CLUSTERING OF ALL SAMPLES BY LOCUS FOR PHYLOGENETIC ANALYZES
-end -> Exit the program
+1e -> Optional quality checking of fastq files (slow)
+
+The option 2 proposes the following submenu:
+
+2a -> Apply the SAME size threshold for ALL SAMPLES for the loci based on PAIRED-END reads (R1/R2 merged)
+2b -> Apply the SAME size threshold for ALL SAMPLES for the loci based on SINGLE-END reads (R1 only)
+2c -> Apply a SPECIFIC size threshold for EACH SAMPLE, for the loci based on PAIRED-END reads (R1/R2 merged)
+2d -> Apply a SPECIFIC size threshold for EACH SAMPLE, for the loci based on SINGLE-END reads (R1 only)
+
 VSEARCH reference:
-Rognes T, Flouri T, Nichols B, Quince C, Mahe F (2016)
-VSEARCH: a versatile open source tool for metagenomics
+Rognes T, Flouri T, Nichols B, Quince C, Mahe F (2016). VSEARCH: a versatile open source tool for metagenomics
 PeerJ 4:e2584 doi: 10.7717/peerj.2584 https://doi.org/10.7717/peerj.2584
+
 Usage:
 =====
     python mbctools.py
@@ -37,7 +49,6 @@ import glob
 import configparser
 
 
-# BEFORE ANYTHING ELSE: MAKE SURE VSEARCH IS INSTALLED ################################################################
 try:
     p = subprocess.run(["vsearch"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 except FileNotFoundError:
@@ -59,8 +70,9 @@ global loci1s, loci2s, loci1_user, loci2_user, dir_fastq, fastqr1_user, fastqr1s
     loc2trim2c, loc2trim2d
 
 
-# FUNCTIONS FOR MULTIPLATFORM SUPPORT #################################################################################
 def start_log_redirect(filepath):
+    """Redirects log files if WinOs or not WinOS
+    """
     if not winOS:
         return "exec 3>&1 4>&2 >" + filepath + " 2>&1\n"
     else:
@@ -68,6 +80,8 @@ def start_log_redirect(filepath):
 
 
 def end_log_redirect(filepath):
+    """Redirects log files if WinOs or not WinOS
+    """
     if not winOS:
         return "exec 1>&3 2>&4\n"
     else:
@@ -75,14 +89,17 @@ def end_log_redirect(filepath):
 
 
 def main_stream_message(message):
+    """Displays a main stream message on the console if WinOS or not WinOS
+    """
     if not winOS:
         return "printf \"" + message + "\" >&3\n"
     else:
         return "Write-Host -NoNewline \"" + message + "\"\n"
 
 
-# FOLDER CREATION #####################################################################################################
 def folders():
+    """ Creates folders useful for the metabarcoding analyze
+    """
     global loci1s, loci2s, loci1_user, loci2_user
     sys.stdout.write("")
     folder = "scripts"
@@ -124,7 +141,7 @@ def folders():
     else:
         os.mkdir(path)
 
-    sys.stdout.write("")  # loci folders
+    sys.stdout.write("")
     for locus in list(set(loci1s) | set(loci2s)):
         path = os.path.join(current_dir + "/loci", locus)
         if Path(path).is_dir():
@@ -134,10 +151,11 @@ def folders():
             os.mkdir(path)
 
 
-# INPUTS AND VARIABLES ################################################################################################
-def in_dir_fastq():  # menu1 1
+def in_dir_fastq():
+    """Input of the path containing the fastq files, option 1
+    """
     global dir_fastq
-    dir_fastq = input("\n\nEnter the FULL PATH to the folder where fastq files are located"
+    dir_fastq = input("\n\nEnter the FULL PATH of the folder where fastq files are located"
                       f"\nDefault is here:\n"
                       f"{current_dir}/fastq\n"
                       f"enter path: ")
@@ -158,6 +176,8 @@ def in_dir_fastq():  # menu1 1
 
 
 def in_fastqr1_user():
+    """Input of the file name containing the R1 fastq file names, option 1
+    """
     global fastqr1_user, fastqr1s
     fastqr1_user = input("\nEnter R1 fastq file name\n"
                          "default = fastqR1.txt: ")
@@ -180,6 +200,8 @@ def in_fastqr1_user():
 
 
 def in_fastqr2_user():
+    """Input of the file name containing the R2 fastq file names, option 1
+    """
     global fastqr2_user, fastqr2s
     fastqr2_user = input("\nEnter R2 fastq file name\n"
                          "default = fastqR2.txt: ")
@@ -201,7 +223,9 @@ def in_fastqr2_user():
         fastqr2s = out2.read().splitlines()
 
 
-def in_loci1_user():  # menu1 4
+def in_loci1_user():
+    """Input of the file name containing the list of paired-end based loci, option 1
+    """
     global loci1_user, loci1s
     loci1_user = input("\nEnter the name of the file containing loci based on paired-end reads\n"
                        "default = locus1.txt: ")
@@ -225,6 +249,8 @@ def in_loci1_user():  # menu1 4
 
 
 def in_loci2_user():
+    """Input of the file name containing the list of single-end based loci, option 1
+    """
     global loci2_user, loci2s
     loci2_user = input("\nEnter the name of the file containing loci based on single-end reads only (R1)\n"
                        "default = locus2.txt: ")
@@ -248,6 +274,8 @@ def in_loci2_user():
 
 
 def in_sample_user():
+    """Input of the file name containing the list of samples, option 1
+    """
     global sample_user, samples
     sample_user = input("\nEnter the name of the file containing sample names\n"
                         "default = samples.txt: ")
@@ -269,7 +297,9 @@ def in_sample_user():
         samples = out5.read().splitlines()
 
 
-def in_minsize_user():  # menu1 7# menu1a 3
+def in_minsize_user():
+    """Input of the minimum abundance of sequences to retain for denoising/clustering, options 1, 1a, 1b, 1c and 1d
+    """
     global minsize_user
     minsize_user = input("\nEnter the minsize option value for clusters,\n"
                          "i.e. the minimum sequence abundance of the retained clusters\n"
@@ -291,7 +321,9 @@ def in_minsize_user():  # menu1 7# menu1a 3
             quit()
 
 
-def in_minseqlength():  # menu1 8# menu1a 4
+def in_minseqlength():
+    """Input of the minimum length of sequences to keep for any locus, options 1, 1a, 1b, 1c and 1d
+    """
     global minseqlength
     minseqlength = input("\nEnter the minimum length of sequences to keep for any locus\n"
                          "default = 100: ")
@@ -312,7 +344,9 @@ def in_minseqlength():  # menu1 8# menu1a 4
             quit()
 
 
-def in_alpha():  # menu1 9# menu1a 5
+def in_alpha():
+    """Input of the alpha parameter for denoising/clustering, options 1, 1a, 1b, 1c and 1d
+    """
     global alpha
     alpha = input("\nEnter alpha parameter for the clustering\n"
                   "default = 2: ")
@@ -333,7 +367,10 @@ def in_alpha():  # menu1 9# menu1a 5
             quit()
 
 
-def in_identity():  # menu1 10# menu1a 6
+def in_identity():
+    """Input of the identity parameter (0, 1.0) to BLAST the clusters against reference sequences, for affiliating
+    clusters to the different loci, options 1, 1a, 1b, 1c and 1d
+    """
     global identity
     identity = input("\nEnter identity parameter to BLAST the clusters against references\n"
                      "i.e. the identity percentage, enter an integer from 0 to 100\n"
@@ -357,6 +394,8 @@ def in_identity():  # menu1 10# menu1a 6
 
 
 def in_loc_sel_merged():
+    """Input of a selected locus based on paired-end reads to rerun for option 1b
+    """
     global loc_sel1
     loc_sel1 = input("\nEnter the name of the locus analysed by paired-end reads you want to rerun\n"
                      f"among {loci1s}"
@@ -376,6 +415,8 @@ def in_loc_sel_merged():
 
 
 def in_loc_sel_r1():
+    """Input of a selected locus based on single-end read (R1) to rerun for option 1c
+    """
     global loc_sel2, rmenu
     loc_sel2 = input("\nEnter the name of the locus analysed by only single-end (R1) reads\n"
                      f"among {loci2s} you want to rerun\n"
@@ -395,6 +436,8 @@ def in_loc_sel_r1():
 
 
 def in_sam_sel():
+    """Input of the sample name to rerun for option 1d
+    """
     global sam_sel, samples
     sam_sel = input(f"\nEnter the sample name you want to rerun\n"
                     f"among {samples}\n"
@@ -415,14 +458,17 @@ def in_sam_sel():
 
 
 def in_loc2trim_2x():
+    """Input of the loci names for selection of minium sequence abundances according to user-defined thresholds,
+    options 2a, 2b, 2c and 2d
+    """
     global loc2trim2a, loc2trim2b, loc2trim2c, loc2trim2d, loci1s, loci2s
     if rmenu == "2a":
         loc2trim2a = input("\nEnter a LOCUS name based on paired-end mergeable reads you want to analyze among:\n"
                            f"{loci1s}\n"
-                            "OR\n"
-                            "'end' to run another option 2x\n"
-                            "'home' to return to main menu\n"
-                            "'exit' to terminate your session 2a: ")
+                           "OR\n"
+                           "'end' to run another option 2x\n"
+                           "'home' to return to main menu\n"
+                           "'exit' to terminate your session 2a: ")
         while loc2trim2a not in loci1s and loc2trim2a not in ["end", "home", "exit"]:
             loc2trim2a = input("\n-->ERROR: locus name is not valid, please enter a valid name\n"
                                f"among {loci1s}\n"
@@ -445,10 +491,10 @@ def in_loc2trim_2x():
     if rmenu == "2b":
         loc2trim2b = input("\nEnter a LOCUS name based on single-end R1 reads you want to analyze among:\n"
                            f"{loci2s}\n"
-                            "OR\n"
-                            "'end' to run another option 2x\n"
-                            "'home' to return to main menu\n"
-                            "'exit' to terminate your session 2b: ")
+                           "OR\n"
+                           "'end' to run another option 2x\n"
+                           "'home' to return to main menu\n"
+                           "'exit' to terminate your session 2b: ")
         while loc2trim2b not in loci2s and loc2trim2b not in ["end", "home", "exit"]:
             loc2trim2b = input("\n-->ERROR: locus name is not valid, please enter a valid name\n"
                                f"among {loci2s}\n"
@@ -469,12 +515,12 @@ def in_loc2trim_2x():
         return loc2trim2b
 
     if rmenu == "2c":
-        loc2trim2c = input("\nEnter avLOCUS name based on paired-end mergeable reads you want to analyze among:\n"
+        loc2trim2c = input("\nEnter a LOCUS name based on paired-end mergeable reads you want to analyze among:\n"
                            f"{loci1s}\n"
-                            "OR\n"
-                            "'end' to run another option 2x\n"
-                            "'home' to return to main menu\n"
-                            "'exit' to terminate your session 2c: ")
+                           "OR\n"
+                           "'end' to run another option 2x\n"
+                           "'home' to return to main menu\n"
+                           "'exit' to terminate your session 2c: ")
         while loc2trim2c not in loci1s and loc2trim2c not in ["end", "home", "exit"]:
             loc2trim2c = input("\n-->ERROR: locus name is not valid, please enter a valid name\n"
                                f"among {loci1s}\n"
@@ -497,10 +543,10 @@ def in_loc2trim_2x():
     if rmenu == "2d":
         loc2trim2d = input("\nEnter a LOCUS name based on single-end (R1) reads you want to analyze among:\n"
                            f"{loci2s}\n"
-                            "OR\n"
-                            "'end' to run another option 2x\n"
-                            "'home' to return to main menu\n"
-                            "'exit' to terminate your session 2d: ")
+                           "OR\n"
+                           "'end' to run another option 2x\n"
+                           "'home' to return to main menu\n"
+                           "'exit' to terminate your session 2d: ")
         while loc2trim2d not in loci2s and loc2trim2d not in ["end", "home", "exit"]:
             loc2trim2d = input("\n-->ERROR: locus name is not valid, please enter a valid name\n"
                                f"among {loci2s}\n"
@@ -522,14 +568,16 @@ def in_loc2trim_2x():
 
 
 def in_trim_sample2c():
+    """Input of sample names for option 2c
+    """
     global samples, sam2trim2c
     sam2trim2c = input(f"\nEnter SAMPLE do you want to trim among {samples}\n"
-                     f"among {samples}?\n"
-                     f"If you finished with locus {loc2trim2c} enter 'end': ")
+                       f"among {samples}?\n"
+                       f"If you finished with locus {loc2trim2c} enter 'end': ")
     while sam2trim2c not in samples and sam2trim2c not in ["end", "home", "exit"]:
         sam2trim2c = input(f"\n-->ERROR: sample name '{sam2trim2c}' is not valid, please enter a valid name\n"
-                         f"among {samples}\n"
-                         "OR 'end' 'home' 'exit': ")
+                           f"among {samples}\n"
+                           "OR 'end' 'home' 'exit': ")
     else:
         if sam2trim2c == "end":
             trim_2x()
@@ -542,14 +590,16 @@ def in_trim_sample2c():
 
 
 def in_trim_sample2d():
+    """Input of sample names for option 2d
+    """
     global samples, sam2trim2d
     sam2trim2d = input(f"\nEnter SAMPLE do you want to trim among {samples}\n"
-                     f"among {samples}?\n"
-                     f"If you finished with locus {loc2trim2d} enter 'end': ")
+                       f"among {samples}?\n"
+                       f"If you finished with locus {loc2trim2d} enter 'end': ")
     while sam2trim2d not in samples and sam2trim2d not in ["end", "home", "exit"]:
         sam2trim2d = input(f"\n-->ERROR: sample name '{sam2trim2d}' is not valid, please enter a valid name\n"
-                         f"among {samples}\n"
-                         "OR 'end' 'home' 'exit': ")
+                           f"among {samples}\n"
+                           "OR 'end' 'home' 'exit': ")
     else:
         if sam2trim2d == "end":
             trim_2x()
@@ -562,6 +612,9 @@ def in_trim_sample2d():
 
 
 def in_trim_left():
+    """Input of the number of bp corresponding to the left primer to remove from the clusters,
+    options 2a, 2b, 2c and 2d
+    """
     global trim_left, loc2trim2a, loc2trim2b,  loc2trim2c
     if rmenu == "2a":
         trim_left = input(f"\nEnter the number of bp of the left primer for {loc2trim2a}? (e.g. 20): ")
@@ -622,6 +675,9 @@ def in_trim_left():
 
 
 def in_trim_right():
+    """Input of the number of bp corresponding to the right primer to remove from the clusters,
+    options 2a, 2b, 2c and 2d
+    """
     global loc2trim2a, loc2trim2b, loc2trim2c, loc2trim2d, trim_right
     if rmenu == "2a":
         trim_right = input(f"\nEnter the number of bp of the right primer for {loc2trim2a}? (e.g. 22): ")
@@ -690,6 +746,8 @@ def in_trim_right():
 
 
 def in_ts():
+    """Input of the user-defined threshold of minimum abundance of clusters to retain, options 2a, 2b, 2c and 2d
+    """
     global ts, ts1, loc2trim2a, loc2trim2b, loc2trim2c, loc2trim2d
     if rmenu == "2a":
         ts = input(f"\nEnter the THRESHOLD do you want to use for this locus {loc2trim2a}?\n"
@@ -781,23 +839,15 @@ def in_ts():
     return ts, ts1
 
 
-# PARAMETER FILES #####################################################################################################
-def param_1x():  # menu1 12
-    """ Creates a file with one parameter by line for options 1x
+def param_1x():
+    """ Creates a file with one parameter by line, options 1, 1a, 1b, 1c and 1d
     """
     global dir_fastq, sample_user, minsize_user, rmenu
     os.chdir(current_dir)
 
     config = configparser.ConfigParser()
-    contents = {}
-    contents["date"] = date
-    contents["dir_fastq"] = dir_fastq
-    contents["fastqr1_user"] = fastqr1_user
-    contents["fastqr2_user"] = fastqr2_user
-    contents["minsize_user"] = minsize_user
-    contents["minseqlength"] = minseqlength
-    contents["alpha"] = alpha
-    contents["identity"] = identity
+    contents = {"date": date, "dir_fastq": dir_fastq, "fastqr1_user": fastqr1_user, "fastqr2_user": fastqr2_user,
+                "minsize_user": minsize_user, "minseqlength": minseqlength, "alpha": alpha, "identity": identity}
     if rmenu == '1' or rmenu == '1a':
         contents["loci1_user"] = loci1_user
         contents["loci2_user"] = loci2_user
@@ -818,7 +868,7 @@ def param_1x():  # menu1 12
         config.write(configfile)
 
 
-def prev_param(paramConfigFile):  # menu1a 2
+def prev_param(paramConfigFile):
     """ Recalls global variables for different options
     """
     global fastqr1s, fastqr2s, loci1s, loci2s, samples
@@ -869,12 +919,14 @@ def prev_param(paramConfigFile):  # menu1a 2
     return fastqr1s, fastqr2s, loci1s, loci2s, samples
 
 
-# STATISTICS ON FASTQ FILES ###########################################################################################
 def quality():
-    """Tests the quality of each 'fastq' file by the VSEARCH command:
-    vsearch --fastq_eestats2 ../tmp_files/fastqF-R1 --output ../tmp_files/SN_R1_quality.txt
-    vsearch --fastq_eestats2 ../tmp_files/fastqF-R2 --output ../tmp_files/SN_R2_quality.txt
-    fastqF = fastq file name
+    """Tests the quality of each 'fastq' file (option 1e) by the VSEARCH command:
+
+    vsearch --fastq_eestats2 dir_fastq/fastqF-R1 --output ../outputs/SN_R1_quality.txt
+    vsearch --fastq_eestats2 dir_fastq/fastqF-R2 --output ../outputs/SN_R2_quality.txt
+
+    dir_fastq = directory containing the fastq files
+    fastqF-R1 and  fastqF-R2 = fastq file names for the sample
     SN = sample name
     """
     global fastqr2s, fastqr1s
@@ -905,13 +957,15 @@ def quality():
         out2.write(main_stream_message(f'\n\n'))
 
 
-# STEP 1: MERGING FOR AMPLICONS BASED ON PAIRED-END READS #############################################################
-def merging():  # menu1 17
-    """Merges paired-end reads into one sequence, when the length of the expected amplicon allows it
+def merging():
+    """Merges paired-end reads into one sequence, when the length of the expected amplicon allows it (option 1)
     according the VSEARCH command:
-    vsearch --fastq_mergepairs ../tmp_files/fastqR1 --reverse ../tmp_files/fastqR2 --fastaout
-    ./tmp_files/SN_pairedEnd.fa   --fastq_allowmergestagger --relabel sample='sample=SN'_merged
-    fastqR1 = fastqR1 complete name
+
+    vsearch --fastq_mergepairs dir_fastq/fastqR1 --reverse dir_fastq/fastqR2 --fastaout
+    ../tmp_files/SN_pairedEnd.fa   --fastq_allowmergestagger --relabel sample=SN_merged.
+
+    dir_fastq =  directory containing the fastq files
+    fastqR1 = complete file name of fastq R1 read
     fastqR2 = fastqR2 complete name
     option  --fastq_allowmergestagger allows the merging of short fragments
     """
@@ -924,22 +978,22 @@ def merging():  # menu1 17
             fastqr2 = fastqr2s[i]
             out.write(main_stream_message(
                 f" {sample}...") +
-                f"vsearch --fastq_mergepairs {dir_fastq}{fileSep}{fastqr1} "
-                f"--reverse {dir_fastq}{fileSep}{fastqr2} --fastaout "
-                f"../tmp_files/{sample}_pairedEnd.fa --fastq_allowmergestagger --fastq_maxee 1 --relabel "
-                f"sample={sample}_merged" + localErrorOnStopCmd + "\n")
+                f"vsearch --fastq_mergepairs {dir_fastq}{fileSep}{fastqr1} --reverse {dir_fastq}{fileSep}{fastqr2} "
+                f"--fastaout ../tmp_files/{sample}_pairedEnd.fa --fastq_allowmergestagger --relabel "
+                f"sample={sample}_merged." + localErrorOnStopCmd + "\n")
             i = i + 1
         out.write(main_stream_message(f'\n\n'))
 
 
-# FASTQ TO FASTA FOR AMPLICONS BASED ON SINGLE-END READS (R1 only) ####################################################
-def fastq2fas():  # menu1 18
+def fastq2fas():
     """When the merging R1/R2 is impossible because of an unadapted size of amplicon, the reads R1 of 301 bp
     (better than R2) are used to search the relevant sequences.
     First, all R1 'fastq' files have to be transformed into 'fasta' files by the VSEARCH command:
-    vsearch --fastq_filter ../tmp_files/fastaqR1 --fastaout ../tmp_files/SN_singleEnd.fa
-    SN = sample name
-    fastqR1 = fastqR1 file name
+
+    vsearch --fastq_filter dir_fastq/fastaqR1 –fastaout ../tmp_files/SN_singleEnd.fa
+
+    Where : dir_fastq = directory containing the fastq files ; SN = sample name ; fastqR1 = name of the 'fastq' file
+    containing the R1 reads
     """
     with open("scripts/fqtofas." + scriptExt, "w") as out:
         i = 0
@@ -950,21 +1004,26 @@ def fastq2fas():  # menu1 18
             fastqr1 = fastqr1s[i]
             out.write(main_stream_message(
                 f' {sample}...') +
-                f"vsearch --fastq_filter {dir_fastq}{fileSep}{fastqr1} --fastaout ../tmp_files/{sample}_singleEnd.fa" +
-                localErrorOnStopCmd + "\n")
+                f"vsearch --fastq_filter {dir_fastq}{fileSep}{fastqr1} --fastaout ../tmp_files/{sample}_singleEnd.fa --relabel "
+                f" sample={sample}_R1." + localErrorOnStopCmd + "\n")
             i = i + 1
         out.write(main_stream_message(f'\n\n'))
 
 
-# DEREPLICATION #######################################################################################################
-def derep_1():  # menu1 19
+def derep_1():
     """Dereplicates merged sequences in a given 'fasta' file with the VSEARCH command:
-    vsearch --derep_fulllength ../tmp_files/SN_pairedEnd.fa  --output ../tmp_files/SN_pairedEnd_pairedEnd_derep.fas --sizeout
+
+    vsearch --fastx_uniques ../tmp_files/SN_pairedEnd.fa  --fastaout ../tmp_files/SN_pairedEnd_derep.fas --sizeout
     --strand both
-    Dereplicates R1 sequences in a given 'fasta' file with the VSEARCH command:
-    vsearch --derep_fulllength ../tmp_files/_R1_SN'_pairedEnd.fa  --output ../tmp_files/SN_pairedEnd_pairedEnd_derep.fas --sizeout
-    --strand both --relabel sample='SN'_merged.
-    Dereplicates in both strands and writes abundance annotation (frequency) to output.
+
+    And dereplicates the R1 sequences in a given 'fasta' file with the VSEARCH command:
+
+    vsearch --fastx_uniques ../tmp_files/SN_singleEnd.fa  --fastaout ../tmp_files/SN_singleEnd_derep.fas --sizeout
+    --strand both
+
+    Both commands dereplicate in both strands (option --strand both) and write abundance annotation (frequency)
+    to output (option --sizeout).
+
     SN = sample name
     """
     with open("scripts/derep." + scriptExt, "w") as out:
@@ -972,9 +1031,8 @@ def derep_1():  # menu1 19
         for sample in samples:
             out.write(main_stream_message(
                 f' {sample}...') +
-                f"vsearch --derep_fulllength ../tmp_files/{sample}_pairedEnd.fa  --output "
-                f"../tmp_files/{sample}_pairedEnd_derep.fas "
-                f"--sizeout --strand both" + localErrorOnStopCmd + "\n")
+                f"vsearch --fastx_uniques ../tmp_files/{sample}_pairedEnd.fa  --fastaout "
+                f"../tmp_files/{sample}_pairedEnd_derep.fas --sizeout --strand both" + localErrorOnStopCmd + "\n")
         out.write(main_stream_message(f'\n\n'))
 
     with open("scripts/derep_r1." + scriptExt, "w") as out1:
@@ -982,27 +1040,28 @@ def derep_1():  # menu1 19
                                                                      f'for samples:\n'))
         for sample in samples:
             out1.write(main_stream_message(f' {sample}...') +
-                       f"vsearch --derep_fulllength ../tmp_files/{sample}_singleEnd.fa --output "
-                       f"../tmp_files/{sample}_singleEnd_derep.fas --sizeout --strand both "
-                       f"--relabel sample={sample}_R1." + localErrorOnStopCmd
+                       f"vsearch --fastx_uniques ../tmp_files/{sample}_singleEnd.fa --fastaout "
+                       f"../tmp_files/{sample}_singleEnd_derep.fas --sizeout --strand both" + localErrorOnStopCmd
                        + "\n")
         out1.write(main_stream_message(f'\n\n'))
 
 
-# UNOISING AND CLUSTERING #############################################################################################
 def cluster_1x():
     """Denoises and clusters Illumina dereplicated merged sequences and gives in output the centroids sequences
-    to 'fasta' files with the following VSEARCH commands:
+    to 'fasta' files (options 1, 1a, 1b, 1c and 1d) with the following VSEARCH commands:
+
     For loci based in paired-end reads:
-    vsearch --cluster_unoise ../tmp_files/SN_pairedEnd_pairedEnd_derep.fas --sizein --centroids ../tmp_files/SN_cluster_pairedEnd.fas
-    --strand both --minsize int --sizeout --sizeorder --unoise_alph int --minseqlength int
+
+    vsearch --cluster_unoise ../tmp_files/SN_pairedEnd_derep.fas --sizein --centroids
+    ../tmp_files/SN(or SS)_pairedEnd_cluster.fas --strand both --minsize int --sizeout --unoise_alph int
+    --minseqlength int
+
     For loci based in single-end reads:
-    vsearch --cluster_unoise ../tmp_files/SN_pairedEnd_pairedEnd_derep.fas --sizein --centroids ../tmp_files/SN_cluster_pairedEnd.fas
-    --strand both --minsize int --sizeout --sizeorder --unoise_alph int --minseqlength int
-    For a single selected sample:
-    vsearch --cluster_unoise ../tmp_files/SS_pairedEnd_pairedEnd_derep.fas --sizein --centroids ../tmp_files/SS_cluster_pairedEnd.fas
-    --strand both --minsize int --sizeout --sizeorder --unoise_alph int --minseqlength int
-    For loci based in single-end reads
+
+    vsearch --cluster_unoise ../tmp_files/SN_singleEnd_derep.fas --sizein --centroids
+    ../tmp_files/SN(or SS)_singleEnd_cluster.fas --strand both --minsize int --sizeout --unoise_alph int
+    --minseqlength int
+
     SN = sample name; int = integer; SS = selected sample
     """
     global rmenu
@@ -1016,7 +1075,7 @@ def cluster_1x():
                     f' {sample}...') +
                     f"vsearch --cluster_unoise ../tmp_files/{sample}_pairedEnd_derep.fas --sizein --centroids "
                     f"../tmp_files/{sample}_pairedEnd_cluster.fas --strand both --minsize {minsize_user} --sizeout "
-                    f"--sizeorder --unoise_alph {alpha} --minseqlength {minseqlength}" + localErrorOnStopCmd + "\n")
+                    f"--unoise_alph {alpha} --minseqlength {minseqlength}" + localErrorOnStopCmd + "\n")
                 i = i + 1
             out.write(main_stream_message(f'\n\n'))
 
@@ -1031,7 +1090,7 @@ def cluster_1x():
                     f' {sample}...') +
                     f"vsearch --cluster_unoise ../tmp_files/{sample}_singleEnd_derep.fas --sizein --centroids "
                     f"../tmp_files/{sample}_singleEnd_cluster.fas --strand both --minsize {minsize_user} --sizeout "
-                    f"--sizeorder --unoise_alpha {alpha} --minseqlength {minseqlength}" + localErrorOnStopCmd
+                    f"--unoise_alpha {alpha} --minseqlength {minseqlength}" + localErrorOnStopCmd
                     + "\n")
                 i = i + 1
             out.write(main_stream_message(f'\n\n'))
@@ -1043,30 +1102,29 @@ def cluster_1x():
                 f'selected sample {sam_sel}:') +
                 f"vsearch --cluster_unoise ../tmp_files/{sam_sel}_pairedEnd_derep.fas --sizein --centroids "
                 f"../tmp_files/{sam_sel}_pairedEnd_cluster.fas --strand both --minsize {minsize_user} --sizeout "
-                f"--sizeorder --unoise_alph {alpha} --minseqlength {minseqlength}" + localErrorOnStopCmd + "\n"
+                f"--unoise_alph {alpha} --minseqlength {minseqlength}" + localErrorOnStopCmd + "\n"
                 f"vsearch --cluster_unoise ../tmp_files/{sam_sel}_singleEnd_derep.fas --sizein --centroids "
                 f"../tmp_files/{sam_sel}_singleEnd_cluster.fas --strand both --minsize {minsize_user} "
-                f"--sizeout --sizeorder --unoise_alph {alpha} --minseqlength {minseqlength}"
+                f"--sizeout --unoise_alph {alpha} --minseqlength {minseqlength}"
                 + localErrorOnStopCmd + "\n")
             out.write(main_stream_message(f'\n\n'))
 
 
-# REMOVING CHIMERA ####################################################################################################
 def chimera_remove():
     """Detects and removes potential chimeras in denoised merged sequences or single-end or selected sample
-    by the VSEARCH commands:
-    vsearch --uchime3_denovo ../tmp_files/SN_cluster_pairedEnd.fas --nonchimeras ../tmp_files/SN_cluster_pairedEnd_OK.fas
-    vsearch --uchime3_denovo ../tmp_files/SN_cluster-R1.fas --nonchimeras ../tmp_files/SN_cluster_singleEnd_OK.fas
-    vsearch --uchime3_denovo ../tmp_files/SS_cluster_pairedEnd.fas --nonchimeras ../tmp_files/SS_cluster_pairedEnd_OK.fas
-    vsearch --uchime3_denovo ../tmp_files/SS_cluster_singleEnd.fas --nonchimeras ../tmp_files/SS_cluster_singleEnd_OK.fas
-    SN = sample name
-    ss = selected sample
-    After denoising, the chimeras are very scarce
+    (options 1, 1a, 1b, 1c and 1d), by the VSEARCH commands:
+
+    vsearch --uchime3_denovo ../tmp_files/SN(or SS)_pairedEnd_cluster.fas --nonchimeras
+    ../tmp_files/SN(or SS)_pairedEnd_cluster_OK.fas
+    vsearch --uchime3_denovo ../tmp_files/SN(or SS)_singleEnd_cluster.fas --nonchimeras
+    ../tmp_files/SN(or SS)_singleEnd_cluster_OK.fas
+
+    SN = sample name; SS = selected sample
     """
     if rmenu in ["1", "1a", "1b"]:
         with open("scripts/chimera." + scriptExt, "w") as out:
             out.write(globalErrorOnStopCmd +
-                    "\n" + main_stream_message(f'Detecting and removing chimeras within merged reads of samples:\n'))
+                      "\n" + main_stream_message(f'Detecting and removing chimeras within merged reads of samples:\n'))
             for sample in samples:
                 out.write(main_stream_message(
                     f' {sample}...') +
@@ -1097,15 +1155,16 @@ def chimera_remove():
             out.write(main_stream_message(f'\n\n'))
 
 
-# DISTRIBUTION OF CLUSTERS INTO THE DIFFERENT LOCI ####################################################################
-def runloc_merged():  # menu1 25
-    """Searches similarities between merged, denoised and non-chimera sequences and the local reference
-    database (-db) by the VSEARCH command:
-    vsearch --usearch_global ../tmp_files/SN_cluster_pairedEnd_OK.fas --db ../refs/L1.fas --matched ../L1/SN_merged.fas
-    --id int --strand both
+def runloc_merged():
+    """Searches similarities between merged sequences, denoised and non-chimera sequences and the local reference
+    database (-db), options 1 and 1a, by the VSEARCH command:
+
+    vsearch --usearch_global ../tmp_files/SN_pairedEnd_cluster_OK.fas --db ../refs/L1.fas --matched
+    ../loci/L1/SN_pairedEnd.fas --id int --strand both
+
     L1 = locus name for amplicons based on paired-end reads
-    This is the second crucial step metabarcoding analyze, depending on a required minimal identity setup by
-    the option 'identity'.
+    SN = sample name
+    id = minimum identity accepted (0-1.0)
     """
     with open("scripts/locimerged." + scriptExt, "w") as out:
         out.write(globalErrorOnStopCmd +
@@ -1120,14 +1179,17 @@ def runloc_merged():  # menu1 25
         out.write(main_stream_message(f'\n\n'))
 
 
-def runloc_r1():  # menu1 26
-    """Similar to runloc_merged but with the R1 denoised and non-chimera sequences
-    in case of amplicons where the merging R1/R2 is impossible, with the VSEARCH command:
-    vsearch --usearch_global ../tmp_files/SN_cluster_singleEnd_OK.fas --db ../refs/L2.fas --matched ../L2/SN_singleEnd.fas
-     --id real --strand both
-     L1 = locus for amplicons with no mergeable R1/R2
-     SN = sample name
-     real = a real from 0 to 1, generally around 0.7
+def runloc_r1():
+    """Searches similarities between single-end sequences (in case of amplicons where the merging R1/R2 is impossible)
+    denoised and non-chimera sequences and the local reference database (-db), options 1 and 1a,
+    by the VSEARCH command:
+
+     vsearch --usearch_global ../tmp_files/SN_singleEnd_cluster_OK.fas --db ../refs/L2.fas --matched
+     ../loci/L2/SN_singledEnd.fa --id int --strand both
+
+    L2 = locus for amplicons with no mergeable R1/R2
+    SN = sample name
+    id = minimum identity accepted (0-1.0)
     """
     with open("scripts/locir1." + scriptExt, "w") as out:
         out.write(globalErrorOnStopCmd +
@@ -1135,138 +1197,155 @@ def runloc_r1():  # menu1 26
         for locus2b in loci2s:
             for sample in samples:
                 out.write(main_stream_message(f' {sample} VS {locus2b}...') +
-                            f"vsearch --usearch_global ../tmp_files/{sample}_singleEnd_cluster_OK.fas --db "
-                            f"../refs/{locus2b}.fas --matched ../loci/{locus2b}/{sample}_singleEnd.fas --id {identity} "
-                            f"--strand both" + localErrorOnStopCmd + "\n")
+                          f"vsearch --usearch_global ../tmp_files/{sample}_singleEnd_cluster_OK.fas --db "
+                          f"../refs/{locus2b}.fas --matched ../loci/{locus2b}/{sample}_singleEnd.fas --id {identity} "
+                          f"--strand both" + localErrorOnStopCmd + "\n")
         out.write(main_stream_message(f'\n\n'))
 
 
-# DISTRIBUTION OF CLUSTERS FOR ONE SELECTED LOCUS #####################################################################
 def runlocsel_merged():
-    """Similar to runloc_merged but with only one selected locus with the VSEARCH command:
-    vsearch --usearch_global ../tmp_files/SN_cluster_pairedEnd_OK.fas --db ../refs/L1.fas --matched
-    ../L2/SN_merged.fas --id real --strand both
+    """Searches similarities between merged sequences, denoised and non-chimera sequences and the local reference
+    database (-db), for a selected paired-end based locus, option 1b, by the VSEARCH command:
+
+    vsearch --usearch_global ../tmp_files/SN_pairedEnd_cluster_OK.fas --db ../refs/SL.fas --matched
+    ../loci/SL/SN_merged.fas --id real --strand both
+
     SN = sample name
-    L1 = locus for amplicons based on paired-end reads
+    SL = Selected locus based on paired-end reads
+    id = minimum identity accepted (0-1.0)
     """
     with open("scripts/loci_sel." + scriptExt, "w") as out:
         out.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Affiliating clusters to selected '
-                                                                      f'locus {loc_sel1} for each sample:\n'))
+                                                                    f'locus {loc_sel1} for each sample:\n'))
         for sample in samples:
             out.write(main_stream_message(f' {sample}...') +
-                        f"vsearch --usearch_global ../tmp_files/{sample}_pairedEnd_cluster_OK.fas --db "
-                        f"../refs/{loc_sel1}.fas --matched ../loci/{loc_sel1}/{sample}_pairedEnd.fas --id {identity} "
-                        f"--strand both"
-                        + localErrorOnStopCmd + "\n")
+                      f"vsearch --usearch_global ../tmp_files/{sample}_pairedEnd_cluster_OK.fas --db "
+                      f"../refs/{loc_sel1}.fas --matched ../loci/{loc_sel1}/{sample}_pairedEnd.fas --id {identity} "
+                      f"--strand both"
+                      + localErrorOnStopCmd + "\n")
         out.write(main_stream_message(f'\n\n'))
 
 
 def runlocsel_r1():
-    """identical to runlocsel_merged but with R1 denoised and non-chimera sequences with the VSEARCH command:
-    vsearch --usearch_global ../tmp_files/SN_cluster_singleEnd_OK.fas --db ../refs/L2.fas --matched
-    ../L2/SN_singleEnd.fas --id real --strand both
+    """Searches similarities between single-end sequences (R1), denoised and non-chimera sequences and the local
+    reference database (-db), for a selected single-end based locus, option 1c, by the VSEARCH command:
+
+    vsearch --usearch_global ../tmp_files/SN_singleEnd_cluster_OK.fas --db ../refs/SL.fas --matched
+    ../loci/SL/SN_singleEnd.fas --id real --strand both
+
     SN = sample name
-    L2 = locus name for amplicons with no mergeable R1/R2
+    SL = Selected locus based on single-end read (R1)
+    id = minimum identity accepted (0-1.0)
     """
     with open("scripts/locir1_sel." + scriptExt, "w") as out:
         out.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Affiliating clusters to selected '
-                                                                      f'locus {loc_sel2} for each sample:\n'))
+                                                                    f'locus {loc_sel2} for each sample:\n'))
         for sample in samples:
             out.write(main_stream_message(f' {sample}...') +
-                        f"vsearch --usearch_global ../tmp_files/{sample}_singleEnd_cluster_OK.fas --db "
-                        f"../refs/{loc_sel2}.fas --matched ../loci/{loc_sel2}/{sample}_singleEnd.fas --id {identity} "
-                        f"--strand both"
-                        + localErrorOnStopCmd + "\n")
+                      f"vsearch --usearch_global ../tmp_files/{sample}_singleEnd_cluster_OK.fas --db "
+                      f"../refs/{loc_sel2}.fas --matched ../loci/{loc_sel2}/{sample}_singleEnd.fas --id {identity} "
+                      f"--strand both"
+                      + localErrorOnStopCmd + "\n")
         out.write(main_stream_message(f'\n\n'))
 
 
-# DISTRIBUTION OF CLUSTERS FOR ONE SELECTED SAMPLE ####################################################################
 def runloc_one_sample_1d():
     """ Searches similarities between denoised and non-chimera sequences and local reference database (db)
-    by the VSEARCH command, but only for a selected sample:
-    vsearch --usearch_global ../tmp_files/SS_cluster_pairedEnd_OK.fas --db ../refs/L1.fas --matched ../L1/SS_merged.fas
-     --id real --strand both
-    vsearch --usearch_global ../tmp_files/SS_cluster_pairedEnd_OK.fas --db ../refs/L2.fas --matched ../L2/SS_merged.fas
-     --id real --strand both
-    SN = locus name
+    only for a selected sample (option 1d) by the VSEARCH command:
+
+    vsearch --usearch_global ../tmp_files/SS_pairedEnd_cluster_OK.fas --db ../refs/L1.fas --matched
+    ../loci/L1/SS_pairedEnd.fas --id real --strand both
+
+    vsearch --usearch_global ../tmp_files/SS_singleEnd_cluster_OK.fas --db ../refs/L2.fas --matched
+    ../loci/L2/SS_singleEnd.fas --id real --strand both
+
+    SS = selected sample
     L1 = locus name for amplicons based on paired-end reads
     L2 = locus name for amplicons with no mergeable R1/R2
-    real = real from 0 to 1
-    This is the second crucial step metabarcoding analyze, depending on a required minimal identity setup by
-    the option 'identity'
+    id = minimum identity accepted (0-1.0)
     """
     with open("scripts/loci_merged_1d." + scriptExt, "w") as out:
         out.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Affiliating clusters of selected '
-                                                                      f'sample {sam_sel} to the loci:\n'))
+                                                                    f'sample {sam_sel} to the loci:\n'))
         for loci1b in loci1s:
             out.write(main_stream_message(f' {loci1b}...') +
-                        f"vsearch --usearch_global ../tmp_files/{sam_sel}_pairedEnd_cluster_OK.fas --db "
-                        f"../refs/{loci1b}.fas --matched ../loci/{loci1b}/{sam_sel}_pairedEnd.fas --id {identity} "
-                        f"--strand both" + localErrorOnStopCmd + "\n")
+                      f"vsearch --usearch_global ../tmp_files/{sam_sel}_pairedEnd_cluster_OK.fas --db "
+                      f"../refs/{loci1b}.fas --matched ../loci/{loci1b}/{sam_sel}_pairedEnd.fas --id {identity} "
+                      f"--strand both" + localErrorOnStopCmd + "\n")
         out.write(main_stream_message(f'\n\n'))
 
     with open("scripts/loci_R1_1d." + scriptExt, "w") as out1:
         out1.write(globalErrorOnStopCmd + "\n" + main_stream_message(f'Affiliating clusters fo selected '
-                                                                      f'sample {sam_sel} to the loci:\n'))
+                                                                     f'sample {sam_sel} to the loci:\n'))
         for locus2b in loci2s:
             out1.write(main_stream_message(f' {locus2b}...') +
-                        f"vsearch --usearch_global ../tmp_files/{sam_sel}_singleEnd_cluster_OK.fas --db ../refs/{locus2b}.fas"
-                        f" --matched ../loci/{locus2b}/{sam_sel}_singleEnd.fas --id {identity} --strand both"
-                        + localErrorOnStopCmd + "\n")
+                       f"vsearch --usearch_global ../tmp_files/{sam_sel}_singleEnd_cluster_OK.fas --db "
+                       f"../refs/{locus2b}.fas --matched ../loci/{locus2b}/{sam_sel}_singleEnd.fas "
+                       f"--id {identity} --strand both"
+                       + localErrorOnStopCmd + "\n")
             out1.write(main_stream_message(f'\n\n'))
 
 
-# ORIENTATION OF SEQUENCES INTO FORWARD DIRECTION ####################################################################
 def orient_1x():
-    """Orients all the sequences in the same direction (forward) than references with the following script:
+    """Orients all the sequences in the same direction (forward) than references, options 1, 1a, 1c and 1d,
+    with the following script:
+
     For paired-end merged sequences:
-    vsearch --orient ../L1/SN_merged.fas --db ../refs/L1.fas --fastaout ../L1/SN_orient.fas
+    vsearch --orient ../loci/L1/SN_pairedEnd.fas --db ../refs/L1.fas --fastaout ../loci/L1/SN_pairedEnd_orient.fas
+
     For single-end R1 sequences:
-    vsearch --orient ../L2/SN_singleEnd.fas --db ../refs/L2.fas --fastaout ../L2/SN_R1_orient.fas
+    vsearch --orient ../loci/L2/SN_singleEnd.fas --db ../refs/L2.fas --fastaout ../loci/L2/SN_singleEnd_orient.fas
+
     For selected loci:
-    vsearch --orient ../SL/SN_merged.fas --db ../refs/SL.fas --fastaout ../SL/SN_orient.fas
-    vsearch --orient ../SL/SN_singleEnd.fas --db ../refs/SL.fas --fastaout ../SL/SN_R1_orient.fas
+    vsearch --orient ../loci/SL/SN_pairedEnd.fas --db ../refs/SL.fas --fastaout ../loci/SL/SN_pairedEnd_orient.fas
+    or
+    vsearch --orient ../loci/SL/SN_singleEnd.fas --db ../refs/SL.fas --fastaout ../loci/SL/SN_singleEnd_orient.fas
+
     For selected sample:
-    vsearch --orient ../L1/SS_merged.fas --db ../refs/L1.fas --fastaout ../L1/SS_orient.fas
-    vsearch --orient ../L2/SS_merged.fas --db ../refs/L2.fas --fastaout ../L1/SS_orient.fas
-    SN = locus name
+    vsearch --orient ../loci/L1/SS_pairedEnd.fas --db ../refs/L1.fas --fastaout ../loci/L1/SS_pairedEnd_orient.fas
+    and
+    vsearch --orient ../loci/L2/SS_singleEnd.fas --db ../refs/L2.fas --fastaout ../loci/L1/SS_singleEnd_orient.fas
+
+    SN = locus name; SS = selected sample; SL = selected locus
     L1 = locus name for amplicons based on paired-end reads
     L2 = locus name for amplicons with no mergeable R1/R2
-    SL = selected locus
     """
     if rmenu in ["1", "1a"]:
         with open("scripts/orientloc1." + scriptExt, "w") as out:
             out.write(globalErrorOnStopCmd + "\n" +
-                        main_stream_message(f"Orienting all merged reads in "
-                        f"the same direction for each sample:\n"))
+                      main_stream_message(f"Orienting all merged reads in the same direction for each sample:\n"))
             for locus1b in loci1s:
                 for sample in samples:
                     out.write(main_stream_message(f' {sample} VS {locus1b}...') +
-                        f"vsearch --orient ../loci/{locus1b}/{sample}_pairedEnd.fas --db ../refs/{locus1b}.fas --fastaout "
-                        f"../loci/{locus1b}/{sample}_pairedEnd_orient.fas" + localErrorOnStopCmd + "\n")
+                              f"vsearch --orient ../loci/{locus1b}/{sample}_pairedEnd.fas --db ../refs/{locus1b}.fas "
+                              f"--fastaout ../loci/{locus1b}/{sample}_pairedEnd_orient.fas"
+                              + localErrorOnStopCmd + "\n")
             out.write(main_stream_message(f'\n\n'))
 
         with open("scripts/orientloc2." + scriptExt, "w") as out1:
             out1.write(globalErrorOnStopCmd + "\n" +
-                        main_stream_message(f"Orienting all single-end reads in "
-                        f"the same direction for each sample:\n"))
+                       main_stream_message(f"Orienting all single-end reads in "
+                                           f"the same direction for each sample:\n"))
             for locus2b in loci2s:
                 for sample in samples:
                     out1.write(main_stream_message(f' {sample} VS {locus2b}...') +
-                    f"vsearch --orient ../loci/{locus2b}/{sample}_singleEnd.fas --db ../refs/{locus2b}.fas --fastaout "
-                    f"../loci/{locus2b}/{sample}_singleEnd_orient.fas" + localErrorOnStopCmd + "\n")
+                               f"vsearch --orient ../loci/{locus2b}/{sample}_singleEnd.fas --db ../refs/{locus2b}.fas "
+                               f"--fastaout ../loci/{locus2b}/{sample}_singleEnd_orient.fas" + localErrorOnStopCmd
+                               + "\n")
             out1.write(main_stream_message(f'\n\n'))
 
     elif rmenu == "1b":
         with open("scripts/orient_merged_1b." + scriptExt, "w") as out:
             out.write(globalErrorOnStopCmd + "\n" +
-                main_stream_message(f'Orientation of all merged reads in the same '
-                f'direction for selected locus {loc_sel1} '
-                f'and for each sample:\n'))
+                      main_stream_message(f'Orientation of all merged reads in the same '
+                                          f'direction for selected locus {loc_sel1} '
+                                          f'and for each sample:\n'))
             for sample in samples:
                 out.write(main_stream_message(f' {sample}...') +
-                f"vsearch --orient ../loci/{loc_sel1}/{sample}_pairedEnd.fas --db ../refs/{loc_sel1}.fas --fastaout "
-                f"../loci/{loc_sel1}/{sample}_pairedEnd_orient.fas" + localErrorOnStopCmd + "\n")
+                                              f"vsearch --orient ../loci/{loc_sel1}/{sample}_pairedEnd.fas --db "
+                                              f"../refs/{loc_sel1}.fas --fastaout "
+                                              f"../loci/{loc_sel1}/{sample}_pairedEnd_orient.fas" +
+                          localErrorOnStopCmd + "\n")
             out.write(main_stream_message(f'\n\n'))
 
     elif rmenu == "1c":
@@ -1302,8 +1381,9 @@ def orient_1x():
             out18.write(main_stream_message(f'\n\n'))
 
 
-# CREATION OF GLOBAL SCRIPTS ##########################################################################################
 def runs_1x():
+    """Creation of global scripts for the options 1, 1a, 1b, 1c, Ad and 1e
+    """
     global rmenu, p
     if rmenu == "1":
         with open(f"scripts/runall1.{scriptExt}", "w") as out:
@@ -1554,10 +1634,9 @@ def runs_1x():
         os.chdir(current_dir)
 
 
-# GLOBAL STATISTICS ACCORDING THE OPTIONS ###########################################################################
-def stats_1x():  # menu1 29 fin
+def stats_1x():
     """Calculates the number of resulting sequences (reads, merged, dereplicates and clusters) according
-    to the selected options 'minsize', minseqlength, alpha parameter' and 'identity'.
+    to the selected options 'minsize', 'minseqlength', 'alpha parameter' and 'identity', options 1, 1a, 1b, 1c and 1d
     """
     if rmenu == "1":
         os.chdir(current_dir)
@@ -1814,8 +1893,9 @@ def stats_1x():  # menu1 29 fin
               "\nThe RUN option 1d is complete\n")
 
 
-# TRIM PRIMERS AND SELECT SEQUENCES ACCORDING THRESHOLDS ##############################################################
 def trim_2x():
+    """Removes primers and selects clusters according minimum abundance thresholds fixed by the user
+    """
     global loc2trim2a, loc2trim2b, loc2trim2c, loc2trim2d, ts, ts1, trim_left, trim_right, sam2trim2c, sam2trim2d
     if rmenu == "2a":
         os.chdir(current_dir)
@@ -1823,7 +1903,6 @@ def trim_2x():
         while True:
             loc2trim2a = in_loc2trim_2x()
             os.chdir(f"./loci/{loc2trim2a}")
-            #  In a locus folder
             trim_left = in_trim_left()
             trim_right = in_trim_right()
             ts = in_ts()
@@ -1905,7 +1984,6 @@ def trim_2x():
         while True:
             loc2trim2c = in_loc2trim_2x()
             os.chdir(f"{current_dir}/loci/{loc2trim2c}")
-            # in locus folder
             trim_left = in_trim_left()
             trim_right = in_trim_right()
             stat_2c.write(f"Locus {loc2trim2c} trimmed at {trim_left} bp (left) and {trim_right} bp (right)\n")
@@ -1947,7 +2025,6 @@ def trim_2x():
         while True:
             loc2trim2d = in_loc2trim_2x()
             os.chdir(f"{current_dir}/loci/{loc2trim2d}")
-            # in locus folder
             trim_left = in_trim_left()
             trim_right = in_trim_right()
             stat_2d.write(f"Locus {loc2trim2d} trimmed at {trim_left} bp (left) and {trim_right} bp (right)\n")
@@ -1983,9 +2060,9 @@ def trim_2x():
                 os.remove("trim-select." + scriptExt)
                 os.remove("tmp")
 
-# CLUSTERING OF ALL SAMPLES BY LOCUS FOR PHYLOGENETIC ANALYZES ########################################################
+
 def concat_3():
-    """CLUSTERING OF ALL SAMPLES BY LOCUS FOR PHYLOGENETIC ANALYZES PAIRED_END
+    """Clustering of all sample sequences by locus in a unique file (option 3)
     """
     os.system("cls" if winOS else "clear")
     global alloci, samples, loc2cat
@@ -2027,6 +2104,8 @@ def concat_3():
 
 
 def prevent():
+    """Forces the user to run the mandatory option 1 before any other option
+    """
     global current_dir
     if os.path.isfile(f"{current_dir}/outputs/parameters_option_1.cfg") is False:
         sys.stdout.write("\nYou have to previously run mandatory OPTION 1 before running this option \n")
@@ -2040,6 +2119,8 @@ def prevent():
 
 
 def main_menu1():
+    """Displays the submenu 1
+    """
     os.system("cls" if winOS else "clear")
     global rmenu
     rmenu = input("\n----- BASIC ANALYSIS - only option 1 is strictly mandatory -----\n\n"
@@ -2076,6 +2157,8 @@ def main_menu1():
 
 
 def main_menu2():
+    """Displays the submenu 2
+    """
     os.system("cls" if winOS else "clear")
     global rmenu
     rmenu = input("\n----- SELECTION OF MINIMUM SEQUENCE ABUNDANCES ACCORDING TO USER-DEFINED THRESHOLDS -----\n\n"
@@ -2116,6 +2199,8 @@ def main_menu2():
 
 
 def main_menu3():
+    """Displays the submenu 3
+    """
     prevent()
     prev_param(None)
     concat_3()
@@ -2123,6 +2208,8 @@ def main_menu3():
 
 
 def menu1():
+    """Runs option 1
+    """
     try: dir_fastq
     except NameError: in_dir_fastq()
     try: fastqr1_user
@@ -2161,6 +2248,8 @@ def menu1():
 
 
 def menu1a():
+    """Runs option 1a
+    """
     prevent()
     prev_param(None)
     in_minsize_user()
@@ -2179,6 +2268,8 @@ def menu1a():
 
 
 def menu1b():
+    """Runs option 1b
+    """
     prevent()
     prev_param(None)
     in_loc_sel_merged()
@@ -2197,6 +2288,8 @@ def menu1b():
 
 
 def menu1c():
+    """Runs option 1c
+    """
     prevent()
     prev_param(None)
     in_loc_sel_r1()
@@ -2214,6 +2307,8 @@ def menu1c():
 
 
 def menu1d():
+    """Runs option 1d
+    """
     prevent()
     prev_param(None)
     in_sam_sel()
@@ -2232,6 +2327,8 @@ def menu1d():
 
 
 def menu1e():
+    """Runs option 1e
+    """
     prevent()
     prev_param(None)
     quality()
@@ -2240,6 +2337,8 @@ def menu1e():
 
 
 def menu2a():
+    """Runs option 2a
+    """
     prevent()
     prev_param(None)
     trim_2x()
@@ -2247,6 +2346,8 @@ def menu2a():
 
 
 def menu2b():
+    """Runs option 2b
+    """
     prevent()
     prev_param(None)
     trim_2x()
@@ -2254,6 +2355,8 @@ def menu2b():
 
 
 def menu2c():
+    """Runs option 2c
+    """
     prevent()
     prev_param(None)
     if os.path.exists("outputs/Stats_option_2c.txt"):
@@ -2263,6 +2366,8 @@ def menu2c():
 
 
 def menu2d():
+    """Runs option 2d
+    """
     prevent()
     prev_param(None)
     if os.path.exists("outputs/Stats_option_2d.txt"):
@@ -2272,6 +2377,8 @@ def menu2d():
 
 
 def menu3():
+    """Runs option 3
+    """
     prevent()
     prev_param(None)
     concat_3()
@@ -2279,6 +2386,8 @@ def menu3():
 
 
 def rerun():
+    """Prompts the user to continue using mbctools or not
+    """
     global next_run
     next_run = input("Do you want to continue with mbctools? enter 'yes' or 'no': ")
     while next_run not in ["yes", "no", ""]:
@@ -2291,9 +2400,9 @@ def rerun():
         quit()
 
 
-# Main menu
-#######################################################################################################################
 def main():
+    """Displays the main menu
+    """
 
     if len(sys.argv) > 1:
         if os.path.isfile(sys.argv[1]):
@@ -2320,7 +2429,7 @@ def main():
                      "Entering 'end' returns to the program upper level, if any\n"
                      "Entering 'home' returns to this main menu\n"
                      "Entering 'exit' leaves the program\n\n")
-    menu = input("\n1 -> BASIC ANALYSES\n\n"
+    menu = input("\n1 -> BASIC ANALYZES\n\n"
                  "2 -> SELECTION OF MINIMUM SEQUENCE ABUNDANCES ACCORDING TO USER-DEFINED THRESHOLDS\n\n"
                  "3 -> CONCATENATION OF ALL SAMPLES BY LOCUS FOR PHYLOGENETIC ANALYZES\n\n"
                  "\nEnter '1', '2', '3'\n"
@@ -2338,7 +2447,6 @@ def main():
             main_menu2()
         if menu == '3':
             main_menu3()
-
 
 
 if __name__ == "__main__":
