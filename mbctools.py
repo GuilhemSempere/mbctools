@@ -750,10 +750,9 @@ def in_ts():
     """
     global ts, ts1, loc2trim2a, loc2trim2b, loc2trim2c, loc2trim2d
     if rmenu == "2a":
-        ts = input(f"\nEnter the THRESHOLD do you want to use for this locus {loc2trim2a}?\n"
+        ts = input(f"\nEnter the THRESHOLD (integer between 0 and 100) you want to use for this locus {loc2trim2a}\n"
                    f"Example: if you want to keep only the clusters whose abundance (size) is greater than 5%\n"
                    f"of the sum of sizes for each sample with {loc2trim2a}, enter 5\n"
-                   f"Enter an integer between 0 and 100\n"
                    f"no default: ")
         while ts not in ["end", "home", "exit"] and ts.isnumeric() is False or ts == "":
             ts = input("\n-->ERROR: THRESHOLD format is not valid, it must be an integer between 0 and 100\n"
@@ -772,10 +771,9 @@ def in_ts():
                 quit()
 
     if rmenu == "2b":
-        ts = input(f"\nEnter the THRESHOLD do you want to use for this locus {loc2trim2b}?\n"
+        ts = input(f"\nEnter the THRESHOLD (integer between 0 and 100) you want to use for this locus {loc2trim2b}\n"
                    f"Example: if you want to keep only the clusters whose abundance (size) is greater than 5%\n"
                    f"of the sum of sizes for each sample with {loc2trim2b}, enter 5\n"
-                   f"Enter an integer between 0 and 100\n"
                    f"no default: ")
         while ts not in ["end", "home", "exit"] and ts.isnumeric() is False or ts == "":
             ts = input("\n-->ERROR: THRESHOLD format is not valid, it must be an integer between 0 and 100\n"
@@ -794,10 +792,9 @@ def in_ts():
                 quit()
 
     if rmenu == "2c":
-        ts = input(f"\nEnter the THRESHOLD do you want to use for this sample {sam2trim2c}?\n"
+        ts = input(f"\nEnter the THRESHOLD (integer between 0 and 100) you want to use for this sample {sam2trim2c}\n"
                    f"Example: if you want to keep only the clusters whose abundance (size) is greater than 5%\n"
                    f"of the sum of sizes for {sam2trim2c}, enter 5\n"
-                   f"Enter an integer between 0 and 100\n"
                    f"no default: ")
         while ts not in ["end", "home", "exit"] and ts.isnumeric() is False or ts == "":
             ts = input("\n-->ERROR: THRESHOLD format is not valid, it must be an integer between 0 and 100\n"
@@ -816,10 +813,9 @@ def in_ts():
                 quit()
 
     if rmenu == "2d":
-        ts = input(f"\nEnter the THRESHOLD do you want to use for this locus {loc2trim2d}?\n"
+        ts = input(f"\nEnter the THRESHOLD (integer between 0 and 100) you want to use for this locus {loc2trim2d}\n"
                    f"Example: if you want to keep only the clusters whose abundance (size) is greater than 5%\n"
                    f"of the sum of sizes for each sample with {loc2trim2d}, enter 5\n"
-                   f"Enter an integer between 0 and 100\n"
                    f"no default: ")
         while ts not in ["end", "home", "exit"] and ts.isnumeric() is False or ts == "":
             ts = input("\n-->ERROR: THRESHOLD format is not valid, it must be an integer between 0 and 100\n"
@@ -1918,7 +1914,7 @@ def trim_2x():
                         a = a + int(size)
                     b = int(a * float(ts1) + 1)
                     stat_2a.writelines(f"\tSum of sizes for {sample} = {a}\n"
-                                       f"\tThe sizes > {b} for {sample} were conserved\n")
+                                       f"\tThe sizes > {b} for {sample} were retained\n")
                     out.write(f"" + start_log_redirect('./' + sample + '.log') +
                                 f"vsearch --fastx_filter {sample}_pairedEnd_orient.fas --fastq_stripleft {trim_left} "
                                 f"  --fastq_stripright {trim_right} --fastaout tmp --minsize {b}"
@@ -1931,8 +1927,8 @@ def trim_2x():
                 selected = open(f'./{sample}_pairedEnd_select.fas', 'r')
                 nb_selected = selected.read().count('>')
                 stat_2a.writelines(f"\tNumber of selected clusters for sample {sample}: {nb_selected}\n\n")
-                sys.stdout.write(f"\n\nSum of sizes for {sample} at locus {loc2trim2a} = {a}\n"
-                                 f"With threshold set at {ts}, sizes > {b} were conserved\n"
+                sys.stdout.write(f"\nSum of sizes for {sample} at locus {loc2trim2a} = {a}\n"
+                                 f"With threshold set at {ts}, sizes > {b} were retained\n"
                                  f"Number of selected clusters for sample {sample}: {nb_selected}\n")
             os.remove("trim-select." + scriptExt)
             os.remove("tmp")
@@ -1959,7 +1955,7 @@ def trim_2x():
                         a = a + int(size)
                     b = int(a * float(ts1) + 1)
                     stat_2b.writelines(f"\tSum of sizes for {sample} = {a}\n"
-                                       f"\tThe sizes > {b} for {sample} were conserved\n")
+                                       f"\tThe sizes > {b} for {sample} were retained\n")
                     out.write(f"" + start_log_redirect('./' + sample + '.log') +
                               f"vsearch --fastx_filter {sample}_singleEnd_orient.fas --fastq_stripleft {trim_left} "
                               f"  --fastq_stripright {trim_right} --fastaout tmp --minsize {b}"
@@ -1972,7 +1968,7 @@ def trim_2x():
                 nb_selected = selected.read().count('>')
                 stat_2b.writelines(f"\tNumber of selected clusters for sample {sample}: {nb_selected}\n\n")
                 sys.stdout.write(f"\nSum of sizes for {sample} at locus {loc2trim2b} = {a}\n"
-                                 f"With threshold set at {ts}, sizes > {b} were conserved\n"
+                                 f"With threshold set at {ts}, sizes > {b} were retained\n"
                                  f"Number of selected clusters for sample {sample}: {nb_selected}\n")
             os.remove("trim-select." + scriptExt)
             os.remove("tmp")
@@ -1999,7 +1995,7 @@ def trim_2x():
                         a = a + int(size)
                     b = int(a * float(ts1) + 1)
                     stat_2c.write(f"\tSum of sizes for {sam2trim2c} at locus {loc2trim2c} = {a}\n"
-                                   f"\tAt threshold {ts} sizes > {b} for {sam2trim2c} were conserved\n")
+                                   f"\tAt threshold {ts} sizes > {b} for {sam2trim2c} were retained\n")
                     filout.writelines(f'' + start_log_redirect('./' + loc2trim2c + '.log') +
                         f' vsearch --fastx_filter {sam2trim2c}_pairedEnd_orient.fas --fastq_stripleft {trim_left} '
                         f'  --fastq_stripright {trim_right} --fastaout tmp --minsize {b}\n'
@@ -2013,7 +2009,7 @@ def trim_2x():
                 nb_selected = selected.read().count(">")
                 stat_2c.write(f"\tNumber of selected clusters for {sam2trim2c} is: {nb_selected}\n\n")
                 sys.stdout.write(f"\n{sam2trim2c}: sum of sizes = {a}\n"
-                                 f"The sizes > {b} were conserved\n"
+                                 f"The sizes > {b} were retained\n"
                                  f"The number of selected clusters for {sam2trim2c} at locus {loc2trim2c} "
                                  f"= {nb_selected}\n")
                 os.remove("trim-select." + scriptExt)
@@ -2040,7 +2036,7 @@ def trim_2x():
                         a = a + int(size)
                     b = int(a * float(ts1) + 1)
                     stat_2d.write(f"\tSum of sizes for {sam2trim2d} at locus {loc2trim2d} = {a}\n"
-                                   f"\tAt threshold {ts} sizes > {b} for {sam2trim2d} were conserved\n")
+                                   f"\tAt threshold {ts} sizes > {b} for {sam2trim2d} were retained\n")
                     filout.writelines(f'' + start_log_redirect('./' + loc2trim2d + '.log') +
                         f' vsearch --fastx_filter {sam2trim2d}_singleEnd_orient.fas --fastq_stripleft {trim_left} '
                         f'  --fastq_stripright {trim_right} --fastaout tmp --minsize {b}\n'
@@ -2054,7 +2050,7 @@ def trim_2x():
                 nb_selected = selected.read().count(">")
                 stat_2d.write(f"\tNumber of selected clusters for {sam2trim2d} is: {nb_selected}\n\n")
                 sys.stdout.write(f"\n{sam2trim2d}: sum of sizes = {a}\n"
-                                 f"The sizes > {b} were conserved\n"
+                                 f"The sizes > {b} were retained\n"
                                  f"Number of selected clusters for {sam2trim2d} at locus {loc2trim2d} "
                                  f"= {nb_selected}\n")
                 os.remove("trim-select." + scriptExt)
@@ -2090,10 +2086,15 @@ def concat_3():
         stat_3 = open('./outputs/Stats_option_3.txt', 'a')
         os.chdir(f"./loci/{loc2cat}")
         files2cat = glob.glob('*_select.fas')
+        if len(files2cat) == 0:
+            sys.stderr.write(f"\nSequences for locus {loc2cat} have not been filtered using an abundance threshold. Please run step 2 on all loci for which you want to run step 3\n\n")
+            return
+
         with open(f"./{loc2cat}_allseq_select.fasta", "w") as out:
             for file in files2cat:
-                with open(file, "r") as out2:
-                    out.write(out2.read())
+                if os.path.exists(file):
+                    with open(file, "r") as out2:
+                        out.write(out2.read())
         tot = open("./" + loc2cat + "_allseq_select.fasta")
         nb_tot = tot.read().count(">")
         stat_3.writelines(f"The locus {loc2cat} has {nb_tot} sequences\n")
