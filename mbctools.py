@@ -6,6 +6,7 @@ metabarcoding data in the best conditions. It assumes VSEARCH is pre-installed a
 1 -> BASIC ANALYZES
 2 -> SELECTION OF MINIMUM SEQUENCE ABUNDANCES ACCORDING TO USER-DEFINED THRESHOLDS
 3 -> CONCATENATION OF ALL SAMPLES BY LOCUS FOR PHYLOGENETIC ANALYZES
+4 -> CONVERSION OF ANALYSIS RESULTS INTO metaXplor IMPORT FORMAT
 
 Option 1 offers the following submenu:
 
@@ -23,13 +24,21 @@ Option 2 offers the following submenu:
 2c -> Apply a SPECIFIC size threshold for EACH SAMPLE, for the loci based on PAIRED-END reads (R1/R2 merged)
 2d -> Apply a SPECIFIC size threshold for EACH SAMPLE, for the loci based on SINGLE-END reads (R1 only)
 
+Option 4 offers the following submenu:
+
+4a -> Generate sequence files
+4b -> Generate assignment file
+4c -> Builds metaXplor-format sample metadata file from provided tabulated file
+4d -> Compresses all metaXplor files into a final, ready to import, zip archive
+
+
 VSEARCH reference:
 Rognes T, Flouri T, Nichols B, Quince C, Mahe F (2016). VSEARCH: a versatile open source tool for metagenomics
 PeerJ 4:e2584 doi: 10.7717/peerj.2584 https://doi.org/10.7717/peerj.2584
 
 Usage:
 =====
-    python mbctools.py
+    python3 mbctools.py
 """
 
 __authors__ = "Christian Barnabe, Guilhem Sempere"
