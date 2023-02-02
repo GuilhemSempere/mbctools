@@ -1,13 +1,13 @@
 #!/usr/bin/python3
 
-"""mbctools a multi-platform toolkit to make the use of VSEARCH easier and interactive, to analyze
-metabarcoding data in the best conditions. It proposes the following MAIN MENU:
+"""mbctools a cross-platform toolkit to make use of VSEARCH easier and interactive, thus helping analyze
+metabarcoding data in the best conditions. It assumes VSEARCH is pre-installed and consists in the following MAIN MENU:
 
 1 -> BASIC ANALYZES
 2 -> SELECTION OF MINIMUM SEQUENCE ABUNDANCES ACCORDING TO USER-DEFINED THRESHOLDS
 3 -> CONCATENATION OF ALL SAMPLES BY LOCUS FOR PHYLOGENETIC ANALYZES
 
-The option 1 proposes the following submenu:
+Option 1 offers the following submenu:
 
 1  -> NEW COMPLETE ANALYSIS (mandatory)
 1a -> Re-analyze all loci, from the clustering step, modifying parameters
@@ -16,7 +16,7 @@ The option 1 proposes the following submenu:
 1d -> Re-analyse only one sample, modifying parameters
 1e -> Optional quality checking of fastq files (slow)
 
-The option 2 proposes the following submenu:
+Option 2 offers the following submenu:
 
 2a -> Apply the SAME size threshold for ALL SAMPLES for the loci based on PAIRED-END reads (R1/R2 merged)
 2b -> Apply the SAME size threshold for ALL SAMPLES for the loci based on SINGLE-END reads (R1 only)
@@ -47,6 +47,10 @@ import subprocess
 import re
 import glob
 import configparser
+import traceback
+import dateutil.parser
+import io
+import zipfile
 
 
 try:
@@ -69,17 +73,18 @@ global loci1s, loci2s, loci1_user, loci2_user, dir_fastq, fastqr1_user, fastqr1s
     trim_right, ts, ts1, sam2trim2c, sam2trim2d, alloci, next_run, menu, ts2, loc2cat, loc2trim2a, loc2trim2b, \
     loc2trim2c, loc2trim2d
 
-errorColor = "\033[91m"
-warningColor = "\033[93m"
-normalColor = "\033[0m"
-titleColor = "\033[94m"
-promptColor = "\033[92m"
+errorStyle = "\033[91m"
+warningStyle = "\033[93m"
+normalStyle = "\033[0m"
+titleStyle = "\033[94m\033[1m"
+promptStyle = "\033[96m"
+successStyle = "\033[92m"
 
-def error(text):
-    sys.stderr.write(errorColor + text + normalColor)
+metaXplorFasta = "metaXplor_sequences.fasta"
+metaXplorSequenceComposition = "metaXplor_sequences.tsv"
+metaXplorAssignments = "metaXplor_assignments.tsv"
+metaXplorSamples = "metaXplor_samples.tsv"
 
-def warning(text):
-    sys.stderr.write(warningColor + text + normalColor)
 
 def start_log_redirect(filepath):
     """Redirects log files if WinOs or not WinOS
@@ -111,12 +116,14 @@ def main_stream_message(message):
 def folders():
     """ Creates folders useful for the metabarcoding analyze
     """
+    alreadyExisting = []
+
     global loci1s, loci2s, loci1_user, loci2_user
     sys.stdout.write("")
     folder = "scripts"
     path = os.path.join(current_dir, folder)
     if Path(path).is_dir():
-        sys.stdout.write(f"\nThe folder {folder} already exists and will be used in the current analysis")
+        alreadyExisting.append(folder)
     else:
         os.mkdir(path)
 
@@ -124,7 +131,7 @@ def folders():
     folder = "outputs"
     path = os.path.join(current_dir, folder)
     if Path(path).is_dir():
-        sys.stdout.write(f"\nThe folder {folder} already exists and will be used in the current analysis")
+        alreadyExisting.append(folder)
     else:
         os.mkdir(path)
 
@@ -132,7 +139,7 @@ def folders():
     folder = "refs"
     path = os.path.join(current_dir, folder)
     if Path(path).is_dir():
-        sys.stdout.write(f"\nThe folder {folder} already exists and will be used in the current analysis")
+        alreadyExisting.append(folder)
     else:
         os.mkdir(path)
 
@@ -140,7 +147,7 @@ def folders():
     folder = "tmp_files"
     path = os.path.join(current_dir, folder)
     if Path(path).is_dir():
-        sys.stdout.write(f"\nThe folder {folder} already exists and will be used in the current analysis")
+        alreadyExisting.append(folder)
     else:
         os.mkdir(path)
 
@@ -148,7 +155,7 @@ def folders():
     folder = "loci"
     path = os.path.join(current_dir, folder)
     if Path(path).is_dir():
-        sys.stdout.write(f"\nThe folder {folder} already exists and will be used in the current analysis")
+        alreadyExisting.append(folder)
     else:
         os.mkdir(path)
 
@@ -156,22 +163,25 @@ def folders():
     for locus in list(set(loci1s) | set(loci2s)):
         path = os.path.join(current_dir + "/loci", locus)
         if Path(path).is_dir():
-            sys.stdout.write(f"\nThe folder loci/{locus} already exists and will be used in the current analysis")
+            alreadyExisting.append("loci/" + locus)
         else:
             os.chdir(f"{current_dir}/loci")
             os.mkdir(path)
+
+    if len(alreadyExisting) > 0:
+        sys.stdout.write(f"\nThe following folders already exist and will be used in the current analysis: " + ", ".join(alreadyExisting))
 
 
 def in_dir_fastq():
     """Input of the path containing the fastq files, option 1
     """
     global dir_fastq
-    dir_fastq = input("\n\n" + promptColor + "Enter the FULL PATH of the folder where fastq files are located" + normalColor +
+    dir_fastq = input("\n\n" + promptStyle + "Enter the FULL PATH of the folder where fastq files are located" + normalStyle +
                       f"\nDefault is here:\n"
                       f"{current_dir}/fastq\n"
                       f"enter path: ")
     while Path(dir_fastq).is_dir() is False and dir_fastq not in ['', 'end', 'home', 'exit']:
-        dir_fastq = input(warningColor + "\n--> WRONG INPUT: " + normalColor + " path not valid, enter a valid path\n"
+        dir_fastq = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " path not valid, enter a valid path\n"
                           "default is {current_dir}/fastq\n"
                           "OR 'end' 'home' 'exit': ")
     else:
@@ -190,10 +200,10 @@ def in_fastqr1_user():
     """Input of the file name containing the R1 fastq file names, option 1
     """
     global fastqr1_user, fastqr1s
-    fastqr1_user = input("\n" + promptColor + "Enter R1 fastq file name\n" + normalColor +
+    fastqr1_user = input("\n" + promptStyle + "Enter R1 fastq file name\n" + normalStyle +
                          "default = fastqR1.txt: ")
     while os.path.isfile(fastqr1_user) is False and fastqr1_user not in ["", "end", "home", "exit"]:
-        fastqr1_user = input(warningColor + "\n--> WRONG INPUT: " + normalColor + " file name is not valid, please enter a valid file name\n"
+        fastqr1_user = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " file name is not valid, please enter a valid file name\n"
                              "default = fastqR1.txt\n"
                              "OR 'end' 'home' 'exit': ")
     else:
@@ -214,10 +224,10 @@ def in_fastqr2_user():
     """Input of the file name containing the R2 fastq file names, option 1
     """
     global fastqr2_user, fastqr2s
-    fastqr2_user = input("\n" + promptColor + "Enter R2 fastq file name\n" + normalColor +
+    fastqr2_user = input("\n" + promptStyle + "Enter R2 fastq file name\n" + normalStyle +
                          "default = fastqR2.txt: ")
     while os.path.isfile(fastqr2_user) is False and fastqr2_user not in ["", "end", "home", "exit"]:
-        fastqr2_user = input(warningColor + "\n--> WRONG INPUT: " + normalColor + " file name is not valid, please enter a valid file name\n"
+        fastqr2_user = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " file name is not valid, please enter a valid file name\n"
                              "default = fastqR2.txt\n"
                              "OR 'end' 'home' 'exit': ")
     else:
@@ -238,10 +248,10 @@ def in_loci1_user():
     """Input of the file name containing the list of paired-end based loci, option 1
     """
     global loci1_user, loci1s
-    loci1_user = input("\n" + promptColor + "Enter the name of the file containing loci based on paired-end reads\n" + normalColor +
+    loci1_user = input("\n" + promptStyle + "Enter the name of the file containing loci based on paired-end reads\n" + normalStyle +
                        "default = locus1.txt: ")
     while os.path.isfile(loci1_user) is False and loci1_user not in ["", "end", "home", "exit"]:
-        loci1_user = input(warningColor + "\n--> WRONG INPUT: " + normalColor + " file name is not valid, please enter a valid file name\n"
+        loci1_user = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " file name is not valid, please enter a valid file name\n"
                            "default = locus1.txt\n"
                            "OR 'end' 'home' 'exit': ")
     else:
@@ -263,10 +273,10 @@ def in_loci2_user():
     """Input of the file name containing the list of single-end based loci, option 1
     """
     global loci2_user, loci2s
-    loci2_user = input("\n" + promptColor + "Enter the name of the file containing loci based on single-end reads only (R1)\n" + normalColor +
+    loci2_user = input("\n" + promptStyle + "Enter the name of the file containing loci based on single-end reads only (R1)\n" + normalStyle +
                        "default = locus2.txt: ")
     while os.path.isfile(loci2_user) is False and loci2_user not in ["", "end", "home", "exit"]:
-        loci2_user = input(warningColor + "\n--> WRONG INPUT: " + normalColor + " file name is not valid, please enter a valid file name\n"
+        loci2_user = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " file name is not valid, please enter a valid file name\n"
                            "default = locus2.txt: "
                            "OR 'end' 'home' 'exit': ")
     else:
@@ -288,10 +298,10 @@ def in_sample_user():
     """Input of the file name containing the list of samples, option 1
     """
     global sample_user, samples
-    sample_user = input("\n" + promptColor + "Enter the name of the file containing sample names\n" + normalColor +
+    sample_user = input("\n" + promptStyle + "Enter the name of the file containing sample names\n" + normalStyle +
                         "default = samples.txt: ")
     while os.path.isfile(sample_user) is False and sample_user not in ["", "end", "home", "exit"]:
-        sample_user = input(warningColor + "\n--> WRONG INPUT: " + normalColor + " file name is not valid, please enter a valid file name\n"
+        sample_user = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " file name is not valid, please enter a valid file name\n"
                             "default = samples.txt\n"
                             "OR 'end' 'home' 'exit': ")
     else:
@@ -312,11 +322,11 @@ def in_minsize_user():
     """Input of the minimum abundance of sequences to retain for denoising/clustering, options 1, 1a, 1b, 1c and 1d
     """
     global minsize_user
-    minsize_user = input("\n" + promptColor + "Enter the minsize option value for clusters,\n" + normalColor +
+    minsize_user = input("\n" + promptStyle + "Enter the minsize option value for clusters,\n" + normalStyle +
                          "i.e. the minimum sequence abundance of the retained clusters\n"
                          "default = 8: ")
     while minsize_user.isnumeric() is False and minsize_user not in ["", "end", "home", "exit"]:
-        minsize_user = input(warningColor + "\n--> WRONG INPUT: " + normalColor + " minsize option must be an integer\n"
+        minsize_user = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " minsize option must be an integer\n"
                              "enter an integer (e.g. 2, 10, 50...)\n"
                              "default = 8\n"
                              "OR 'end' 'home' 'exit': ")
@@ -336,10 +346,10 @@ def in_minseqlength():
     """Input of the minimum length of sequences to keep for any locus, options 1, 1a, 1b, 1c and 1d
     """
     global minseqlength
-    minseqlength = input("\n" + promptColor + "Enter the minimum length of sequences to keep for any locus\n" + normalColor +
+    minseqlength = input("\n" + promptStyle + "Enter the minimum length of sequences to keep for any locus\n" + normalStyle +
                          "default = 100: ")
     while minseqlength.isnumeric() is False and minseqlength not in ["", "end", "home", "exit"]:
-        minseqlength = input(warningColor + "\n--> WRONG INPUT: " + normalColor + " minimum length must be an integer\n"
+        minseqlength = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " minimum length must be an integer\n"
                              "enter an integer (e.g. 100, 150, 180...)\n"
                              "default = 100\n"
                              "OR 'end' 'home' 'exit': ")
@@ -359,10 +369,10 @@ def in_alpha():
     """Input of the alpha parameter for denoising/clustering, options 1, 1a, 1b, 1c and 1d
     """
     global alpha
-    alpha = input("\n" + promptColor + "Enter alpha parameter for the clustering\n" + normalColor +
+    alpha = input("\n" + promptStyle + "Enter alpha parameter for the clustering\n" + normalStyle +
                   "default = 2: ")
     while alpha.isnumeric() is False and alpha not in ["", "end", "home", "exit"]:
-        alpha = input(warningColor + "\n--> WRONG INPUT: " + normalColor + " alpha parameter must be an integer\n"
+        alpha = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " alpha parameter must be an integer\n"
                       "enter an integer (e.g. 1, 2, 3...)\n"
                       "default = 2\n"
                       "OR 'end' 'home' 'exit': ")
@@ -383,11 +393,11 @@ def in_identity():
     clusters to the different loci, options 1, 1a, 1b, 1c and 1d
     """
     global identity
-    identity = input("\n" + promptColor + "Enter identity parameter to BLAST the clusters against references\n" + normalColor +
+    identity = input("\n" + promptStyle + "Enter identity parameter to BLAST the clusters against references\n" + normalStyle +
                      "i.e. the identity percentage, enter an integer from 0 to 100\n"
                      "default = 70: ")
     while identity not in ["end", "home", "exit", ""] and identity.isnumeric() is False:
-        identity = input(warningColor + "\n--> WRONG INPUT: " + normalColor + " identity parameter must be an integer from 0 to 100 \n"
+        identity = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " identity parameter must be an integer from 0 to 100 \n"
                          "default = 70\n"
                          "OR 'end' 'home' 'exit': ")
     else:
@@ -408,11 +418,11 @@ def in_loc_sel_merged():
     """Input of a selected locus based on paired-end reads to rerun for option 1b
     """
     global loc_sel1
-    loc_sel1 = input("\n" + promptColor + "Enter the name of the locus analysed by paired-end reads you want to rerun\n" + normalColor +
+    loc_sel1 = input("\n" + promptStyle + "Enter the name of the locus analysed by paired-end reads you want to rerun\n" + normalStyle +
                      f"among {loci1s}"
                      f"no default: ")
     while loc_sel1 not in loci1s and loc_sel1 not in ["end", "home", "exit"]:
-        loc_sel1 = input(warningColor + "\n--> WRONG INPUT: " + normalColor + " locus name is not valid, please enter valid name of locus\n"
+        loc_sel1 = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " locus name is not valid, please enter valid name of locus\n"
                          f"among {loci1s}\n"
                          "OR 'end' 'home' 'exit': ")
     else:
@@ -429,11 +439,11 @@ def in_loc_sel_r1():
     """Input of a selected locus based on single-end read (R1) to rerun for option 1c
     """
     global loc_sel2, rmenu
-    loc_sel2 = input("\n" + promptColor + "Enter the name of the locus analysed by only single-end (R1) reads\n" + normalColor +
+    loc_sel2 = input("\n" + promptStyle + "Enter the name of the locus analysed by only single-end (R1) reads\n" + normalStyle +
                      f"among {loci2s} you want to rerun\n"
                      f"no default: ")
     while loc_sel2 not in loci2s and loc_sel2 not in ["end", "home", "exit"]:
-        loc_sel2 = input(warningColor + "\n--> WRONG INPUT: " + normalColor + " locus name is not valid, please enter valid name of locus\n"
+        loc_sel2 = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " locus name is not valid, please enter valid name of locus\n"
                          f"among {loci2s}\n"
                          "OR 'end' 'home' 'exit': ")
     else:
@@ -450,11 +460,11 @@ def in_sam_sel():
     """Input of the sample name to rerun for option 1d
     """
     global sam_sel, samples
-    sam_sel = input(f"\n" + promptColor + "Enter the sample name you want to rerun\n" + normalColor +
+    sam_sel = input(f"\n" + promptStyle + "Enter the sample name you want to rerun\n" + normalStyle +
                     f"among {samples}\n"
                     f"no default: ")
     while sam_sel not in samples and sam_sel not in ["end", "home", "exit"]:
-        sam_sel = input(warningColor + "\n--> WRONG INPUT: " + normalColor + " sample name is not valid, please enter a valid sample name\n"
+        sam_sel = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " sample name is not valid, please enter a valid sample name\n"
                         f"among {samples}\n"
                         f"no default\n"
                         "OR 'end' 'home' 'exit': ")
@@ -474,14 +484,14 @@ def in_loc2trim_2x():
     """
     global loc2trim2a, loc2trim2b, loc2trim2c, loc2trim2d, loci1s, loci2s
     if rmenu == "2a":
-        loc2trim2a = input("\n" + promptColor + "Enter a LOCUS name based on paired-end mergeable reads you want to analyze among:\n" + normalColor +
+        loc2trim2a = input("\n" + promptStyle + "Enter a LOCUS name based on paired-end mergeable reads you want to analyze among:\n" + normalStyle +
                            f"{loci1s}\n"
                            "OR\n"
                            "'end' to run another option 2x\n"
                            "'home' to return to main menu\n"
                            "'exit' if done with procedure 2a: ")
         while loc2trim2a not in loci1s and loc2trim2a not in ["end", "home", "exit"]:
-            loc2trim2a = input(warningColor + "\n--> WRONG INPUT: " + normalColor + " locus name is not valid, please enter a valid name\n"
+            loc2trim2a = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " locus name is not valid, please enter a valid name\n"
                                f"among {loci1s}\n"
                                "OR\n"
                                "'end' to run an option 2a\n"
@@ -500,14 +510,14 @@ def in_loc2trim_2x():
         return loc2trim2a
 
     if rmenu == "2b":
-        loc2trim2b = input("\n" + promptColor + "Enter a LOCUS name based on single-end R1 reads you want to analyze among:\n" + normalColor +
+        loc2trim2b = input("\n" + promptStyle + "Enter a LOCUS name based on single-end R1 reads you want to analyze among:\n" + normalStyle +
                            f"{loci2s}\n"
                            "OR\n"
                            "'end' to run another option 2x\n"
                            "'home' to return to main menu\n"
                            "'exit' if done with procedure 2b: ")
         while loc2trim2b not in loci2s and loc2trim2b not in ["end", "home", "exit"]:
-            loc2trim2b = input(warningColor + "\n--> WRONG INPUT: " + normalColor + " locus name is not valid, please enter a valid name\n"
+            loc2trim2b = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " locus name is not valid, please enter a valid name\n"
                                f"among {loci2s}\n"
                                "OR\n"
                                "'end' to run an option 2x\n"
@@ -526,14 +536,14 @@ def in_loc2trim_2x():
         return loc2trim2b
 
     if rmenu == "2c":
-        loc2trim2c = input("\n" + promptColor + "Enter a LOCUS name based on paired-end mergeable reads you want to analyze among:\n" + normalColor +
+        loc2trim2c = input("\n" + promptStyle + "Enter a LOCUS name based on paired-end mergeable reads you want to analyze among:\n" + normalStyle +
                            f"{loci1s}\n"
                            "OR\n"
                            "'end' to run another option 2x\n"
                            "'home' to return to main menu\n"
                            "'exit' if done with procedure 2c: ")
         while loc2trim2c not in loci1s and loc2trim2c not in ["end", "home", "exit"]:
-            loc2trim2c = input(warningColor + "\n--> WRONG INPUT: " + normalColor + " locus name is not valid, please enter a valid name\n"
+            loc2trim2c = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " locus name is not valid, please enter a valid name\n"
                                f"among {loci1s}\n"
                                "OR\n"
                                "'end' to run an option 2x\n"
@@ -552,14 +562,14 @@ def in_loc2trim_2x():
         return loc2trim2c
 
     if rmenu == "2d":
-        loc2trim2d = input("\n" + promptColor + "Enter a LOCUS name based on single-end (R1) reads you want to analyze among:\n" + normalColor +
+        loc2trim2d = input("\n" + promptStyle + "Enter a LOCUS name based on single-end (R1) reads you want to analyze among:\n" + normalStyle +
                            f"{loci2s}\n"
                            "OR\n"
                            "'end' to run another option 2x\n"
                            "'home' to return to main menu\n"
                            "'exit' if done with procedure 2d: ")
         while loc2trim2d not in loci2s and loc2trim2d not in ["end", "home", "exit"]:
-            loc2trim2d = input(warningColor + "\n--> WRONG INPUT: " + normalColor + " locus name is not valid, please enter a valid name\n"
+            loc2trim2d = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " locus name is not valid, please enter a valid name\n"
                                f"among {loci2s}\n"
                                "OR\n"
                                "'end' to run an option 2x\n"
@@ -582,11 +592,11 @@ def in_trim_sample2c():
     """Input of sample names for option 2c
     """
     global samples, sam2trim2c
-    sam2trim2c = input(f"\n" + promptColor + "Enter SAMPLE do you want to trim among {samples}\n" + normalColor +
+    sam2trim2c = input(f"\n" + promptStyle + "Enter SAMPLE do you want to trim among {samples}\n" + normalStyle +
                        f"among {samples}?\n"
                        f"If you finished with locus {loc2trim2c} enter 'end': ")
     while sam2trim2c not in samples and sam2trim2c not in ["end", "home", "exit"]:
-        sam2trim2c = input(fwarningColor + "\n--> WRONG INPUT: " + normalColor + " sample name '{sam2trim2c}' is not valid, please enter a valid name\n"
+        sam2trim2c = input(errorStyle + f"\n--> WRONG INPUT: " + normalStyle + " sample name '{sam2trim2c}' is not valid, please enter a valid name\n"
                            f"among {samples}\n"
                            "OR 'end' 'home' 'exit': ")
     else:
@@ -604,11 +614,11 @@ def in_trim_sample2d():
     """Input of sample names for option 2d
     """
     global samples, sam2trim2d
-    sam2trim2d = input(f"\n" + promptColor + "Enter SAMPLE do you want to trim among {samples}\n" + normalColor +
+    sam2trim2d = input(f"\n" + promptStyle + "Enter SAMPLE do you want to trim among {samples}\n" + normalStyle +
                        f"among {samples}?\n"
                        f"If you finished with locus {loc2trim2d} enter 'end': ")
     while sam2trim2d not in samples and sam2trim2d not in ["end", "home", "exit"]:
-        sam2trim2d = input(fwarningColor + "\n--> WRONG INPUT: " + normalColor + " sample name '{sam2trim2d}' is not valid, please enter a valid name\n"
+        sam2trim2d = input(errorStyle + f"\n--> WRONG INPUT: " + normalStyle + " sample name '{sam2trim2d}' is not valid, please enter a valid name\n"
                            f"among {samples}\n"
                            "OR 'end' 'home' 'exit': ")
     else:
@@ -628,9 +638,9 @@ def in_trim_left():
     """
     global trim_left, loc2trim2a, loc2trim2b,  loc2trim2c
     if rmenu == "2a":
-        trim_left = input(f"\n" + promptColor + "Enter the number of bp of the left primer for {loc2trim2a}? (e.g. 20): " + normalColor)
+        trim_left = input(f"\n" + promptStyle + "Enter the number of bp of the left primer for {loc2trim2a}? (e.g. 20): " + normalStyle)
         while trim_left.isnumeric() is False and trim_left not in ["end", "home", "exit"]:
-            trim_left = input(warningColor + "\n--> WRONG INPUT: " + normalColor + " enter an integer corresponding to the length of the left primer (e.g. 20)\n"
+            trim_left = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " enter an integer corresponding to the length of the left primer (e.g. 20)\n"
                               "OR 'end' 'home' 'exit': ")
         else:
             if trim_left == "end":
@@ -642,9 +652,9 @@ def in_trim_left():
                 quit()
 
     if rmenu == "2b":
-        trim_left = input(f"\n" + promptColor + "Enter the number of bp of the left primer for {loc2trim2b}? (e.g. 20): " + normalColor)
+        trim_left = input(f"\n" + promptStyle + "Enter the number of bp of the left primer for {loc2trim2b}? (e.g. 20): " + normalStyle)
         while trim_left.isnumeric() is False and trim_left not in ["end", "home", "exit"]:
-            trim_left = input(warningColor + "\n--> WRONG INPUT: " + normalColor + " enter an integer corresponding to the length of the left primer (e.g. 20)\n"
+            trim_left = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " enter an integer corresponding to the length of the left primer (e.g. 20)\n"
                               "OR 'end' 'home' 'exit': ")
         else:
             if trim_left == "end":
@@ -656,9 +666,9 @@ def in_trim_left():
                 quit()
 
     if rmenu == "2c":
-        trim_left = input(f"\n" + promptColor + "Enter the number of bp of the left primer for {loc2trim2c}? (e.g. 20): " + normalColor)
+        trim_left = input(f"\n" + promptStyle + "Enter the number of bp of the left primer for {loc2trim2c}? (e.g. 20): " + normalStyle)
         while trim_left.isnumeric() is False and trim_left not in ["end", "home", "exit"]:
-            trim_left = input(warningColor + "\n--> WRONG INPUT: " + normalColor + " enter an integer corresponding to the length of the left primer (e.g. 20)\n"
+            trim_left = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " enter an integer corresponding to the length of the left primer (e.g. 20)\n"
                               "OR 'end' 'home' 'exit': ")
         else:
             if trim_left == "end":
@@ -670,9 +680,9 @@ def in_trim_left():
                 quit()
 
     if rmenu == "2d":
-        trim_left = input(f"\n" + promptColor + "Enter the number of bp of the left primer for {loc2trim2d}? (e.g. 20): " + normalColor)
+        trim_left = input(f"\n" + promptStyle + "Enter the number of bp of the left primer for {loc2trim2d}? (e.g. 20): " + normalStyle)
         while trim_left.isnumeric() is False and trim_left not in ["end", "home", "exit"]:
-            trim_left = input(warningColor + "\n--> WRONG INPUT: " + normalColor + " enter an integer corresponding to the length of the left primer (e.g. 20)\n"
+            trim_left = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " enter an integer corresponding to the length of the left primer (e.g. 20)\n"
                               "OR 'end' 'home' 'exit': ")
         else:
             if trim_left == "end":
@@ -691,9 +701,9 @@ def in_trim_right():
     """
     global loc2trim2a, loc2trim2b, loc2trim2c, loc2trim2d, trim_right
     if rmenu == "2a":
-        trim_right = input(f"\n" + promptColor + "Enter the number of bp of the right primer for {loc2trim2a}? (e.g. 22): " + normalColor)
+        trim_right = input(f"\n" + promptStyle + "Enter the number of bp of the right primer for {loc2trim2a}? (e.g. 22): " + normalStyle)
         while trim_right.isnumeric() is False and trim_right not in ["end", "home", "exit"]:
-            trim_right = input(warningColor + "\n--> WRONG INPUT: " + normalColor + " enter an integer corresponding to the length of the "
+            trim_right = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " enter an integer corresponding to the length of the "
                                "right primer (e.g. 22)\n"
                                "OR 'end' 'home' 'exit': ")
         else:
@@ -706,10 +716,10 @@ def in_trim_right():
                 quit()
 
     if rmenu == "2b":
-        trim_right = input(f"\n" + promptColor + "Enter the number of bp of the right primer for {loc2trim2b}?\n" + normalColor +
+        trim_right = input(f"\n" + promptStyle + "Enter the number of bp of the right primer for {loc2trim2b}?\n" + normalStyle +
                            f"NB : may be 0 for single-end reads! (e.g. 22): ")
         while trim_right.isnumeric() is False and trim_right not in ["end", "home", "exit"]:
-            trim_right = input(warningColor + "\n--> WRONG INPUT: " + normalColor + " enter an integer corresponding to the length of the "
+            trim_right = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " enter an integer corresponding to the length of the "
                                "right primer (e.g. 22)\n"
                                "!! May be 0 with single-end based loci"
                                "OR 'end' 'home' 'exit': ")
@@ -723,9 +733,9 @@ def in_trim_right():
                 quit()
 
     if rmenu == "2c":
-        trim_right = input(f"\n" + promptColor + "Enter the number of bp of the right primer for {loc2trim2c}? (e.g. 22): " + normalColor)
+        trim_right = input(f"\n" + promptStyle + "Enter the number of bp of the right primer for {loc2trim2c}? (e.g. 22): " + normalStyle)
         while trim_right.isnumeric() is False and trim_right not in ["end", "home", "exit"]:
-            trim_right = input(warningColor + "\n--> WRONG INPUT: " + normalColor + " enter an integer corresponding to the length of the "
+            trim_right = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " enter an integer corresponding to the length of the "
                                "right primer (e.g. 22)\n"
                                "OR 'end' 'home' 'exit': ")
         else:
@@ -738,10 +748,10 @@ def in_trim_right():
                 quit()
 
     if rmenu == "2d":
-        trim_right = input(f"\n" + promptColor + "Enter the number of bp of the right primer for {loc2trim2d}?\n" + normalColor +
+        trim_right = input(f"\n" + promptStyle + "Enter the number of bp of the right primer for {loc2trim2d}?\n" + normalStyle +
                            f"NB: may be 0 for single-end reads (e.g. 22): ")
         while trim_right.isnumeric() is False and trim_right not in ["end", "home", "exit"]:
-            trim_right = input(warningColor + "\n--> WRONG INPUT: " + normalColor + " enter an integer corresponding to the length of the "
+            trim_right = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " enter an integer corresponding to the length of the "
                                "right primer (e.g. 22)\n"
                                "!! May be 0 with single-end based loci"
                                "OR 'end' 'home' 'exit': ")
@@ -761,12 +771,12 @@ def in_ts():
     """
     global ts, ts1, loc2trim2a, loc2trim2b, loc2trim2c, loc2trim2d
     if rmenu == "2a":
-        ts = input(f"\n" + promptColor + "Enter the THRESHOLD (integer between 0 and 100) you want to use for this locus {loc2trim2a}\n" + normalColor +
+        ts = input(f"\n" + promptStyle + "Enter the THRESHOLD (integer between 0 and 100) you want to use for this locus {loc2trim2a}\n" + normalStyle +
                    f"Example: if you want to keep only the clusters whose abundance (size) is greater than 5%\n"
                    f"of the sum of sizes for each sample with {loc2trim2a}, enter 5\n"
                    f"no default: ")
         while ts not in ["end", "home", "exit"] and ts.isnumeric() is False or ts == "":
-            ts = input(warningColor + "\n--> WRONG INPUT: " + normalColor + " THRESHOLD format is not valid, it must be an integer between 0 and 100\n"
+            ts = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " THRESHOLD format is not valid, it must be an integer between 0 and 100\n"
                        f"Enter a new THRESHOLD for {loc2trim2a}, (e.g. 5)\n"
                        f"no default\n"
                        "OR 'end' 'home' 'exit': ")
@@ -782,12 +792,12 @@ def in_ts():
                 quit()
 
     if rmenu == "2b":
-        ts = input(f"\n" + promptColor + "Enter the THRESHOLD (integer between 0 and 100) you want to use for this locus {loc2trim2b}\n" + normalColor +
+        ts = input(f"\n" + promptStyle + "Enter the THRESHOLD (integer between 0 and 100) you want to use for this locus {loc2trim2b}\n" + normalStyle +
                    f"Example: if you want to keep only the clusters whose abundance (size) is greater than 5%\n"
                    f"of the sum of sizes for each sample with {loc2trim2b}, enter 5\n"
                    f"no default: ")
         while ts not in ["end", "home", "exit"] and ts.isnumeric() is False or ts == "":
-            ts = input(warningColor + "\n--> WRONG INPUT: " + normalColor + " THRESHOLD format is not valid, it must be an integer between 0 and 100\n"
+            ts = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " THRESHOLD format is not valid, it must be an integer between 0 and 100\n"
                        f"Enter a new THRESHOLD for {loc2trim2b}, (e.g. 5)\n"
                        f"no default\n"
                        "OR 'end' 'home' 'exit': ")
@@ -803,12 +813,12 @@ def in_ts():
                 quit()
 
     if rmenu == "2c":
-        ts = input(f"\n" + promptColor + "Enter the THRESHOLD (integer between 0 and 100) you want to use for this sample {sam2trim2c}\n" + normalColor +
+        ts = input(f"\n" + promptStyle + "Enter the THRESHOLD (integer between 0 and 100) you want to use for this sample {sam2trim2c}\n" + normalStyle +
                    f"Example: if you want to keep only the clusters whose abundance (size) is greater than 5%\n"
                    f"of the sum of sizes for {sam2trim2c}, enter 5\n"
                    f"no default: ")
         while ts not in ["end", "home", "exit"] and ts.isnumeric() is False or ts == "":
-            ts = input(warningColor + "\n--> WRONG INPUT: " + normalColor + " THRESHOLD format is not valid, it must be an integer between 0 and 100\n"
+            ts = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " THRESHOLD format is not valid, it must be an integer between 0 and 100\n"
                        f"Enter a new THRESHOLD for {sam2trim2c}, (e.g. 5)\n"
                        f"no default\n"
                        "OR 'end' 'home' 'exit': ")
@@ -824,12 +834,12 @@ def in_ts():
                 quit()
 
     if rmenu == "2d":
-        ts = input(f"\n" + promptColor + "Enter the THRESHOLD (integer between 0 and 100) you want to use for this locus {loc2trim2d}\n" + normalColor +
+        ts = input(f"\n" + promptStyle + "Enter the THRESHOLD (integer between 0 and 100) you want to use for this locus {loc2trim2d}\n" + normalStyle +
                    f"Example: if you want to keep only the clusters whose abundance (size) is greater than 5%\n"
                    f"of the sum of sizes for each sample with {loc2trim2d}, enter 5\n"
                    f"no default: ")
         while ts not in ["end", "home", "exit"] and ts.isnumeric() is False or ts == "":
-            ts = input(warningColor + "\n--> WRONG INPUT: " + normalColor + " THRESHOLD format is not valid, it must be an integer between 0 and 100\n"
+            ts = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " THRESHOLD format is not valid, it must be an integer between 0 and 100\n"
                        f"Enter a new THRESHOLD for {loc2trim2d}, (e.g. 5)\n"
                        f"no default\n"
                        "OR 'end' 'home' 'exit': ")
@@ -927,8 +937,7 @@ def prev_param(paramConfigFile):
 
         return fastqr1s, fastqr2s, loci1s, loci2s, samples
     except KeyError:
-        error("\nMissing parameter in configuration file " + fileToParse + " - ")
-        import traceback
+        print(errorStyle + "\nMissing parameter in configuration file " + fileToParse + " - " + normalStyle)
         traceback.print_exc(limit=0)
         exit(1)
 
@@ -1186,7 +1195,7 @@ def runloc_merged():
         for loci1b in loci1s:
             for sample in samples:
                 out.write(main_stream_message(
-                    f' {sample} VS {loci1b}...') +
+                    f' {sample} vs {loci1b}...') +
                     f"vsearch --usearch_global ../tmp_files/{sample}_pairedEnd_cluster_OK.fas --db ../refs/{loci1b}.fas"
                     f" --matched ../loci/{loci1b}/{sample}_pairedEnd.fas --id {identity} --strand both"
                     + localErrorOnStopCmd + "\n")
@@ -1210,7 +1219,7 @@ def runloc_r1():
                   "\n" + main_stream_message(f'Affiliating clusters to loci for single-end reads of samples:\n'))
         for locus2b in loci2s:
             for sample in samples:
-                out.write(main_stream_message(f' {sample} VS {locus2b}...') +
+                out.write(main_stream_message(f' {sample} vs {locus2b}...') +
                           f"vsearch --usearch_global ../tmp_files/{sample}_singleEnd_cluster_OK.fas --db "
                           f"../refs/{locus2b}.fas --matched ../loci/{locus2b}/{sample}_singleEnd.fas --id {identity} "
                           f"--strand both" + localErrorOnStopCmd + "\n")
@@ -1330,7 +1339,7 @@ def orient_1x():
                       main_stream_message(f"Orienting all merged reads in the same direction for each sample:\n"))
             for locus1b in loci1s:
                 for sample in samples:
-                    out.write(main_stream_message(f' {sample} VS {locus1b}...') +
+                    out.write(main_stream_message(f' {sample} vs {locus1b}...') +
                               f"vsearch --orient ../loci/{locus1b}/{sample}_pairedEnd.fas --db ../refs/{locus1b}.fas "
                               f"--fastaout ../loci/{locus1b}/{sample}_pairedEnd_orient.fas"
                               + localErrorOnStopCmd + "\n")
@@ -1342,7 +1351,7 @@ def orient_1x():
                                            f"the same direction for each sample:\n"))
             for locus2b in loci2s:
                 for sample in samples:
-                    out1.write(main_stream_message(f' {sample} VS {locus2b}...') +
+                    out1.write(main_stream_message(f' {sample} vs {locus2b}...') +
                                f"vsearch --orient ../loci/{locus2b}/{sample}_singleEnd.fas --db ../refs/{locus2b}.fas "
                                f"--fastaout ../loci/{locus2b}/{sample}_singleEnd_orient.fas" + localErrorOnStopCmd
                                + "\n")
@@ -1439,7 +1448,7 @@ def runs_1x():
         if p.returncode > 0:
             print(f"\nMain analysis execution failed, please check {current_dir}/outputs/res1.log")
             exit(1)
-        print(f"Run of option {rmenu} was correctly achieved")
+        print(successStyle + f"Step {rmenu} ended successfully" + normalStyle)
 
     if rmenu == "1a":
         with open(f"scripts/runall1a.{scriptExt}", "w") as out:
@@ -1486,7 +1495,7 @@ def runs_1x():
         if p.returncode > 0:
             print(f"\nMain analysis execution failed, please check {current_dir}/outputs/res1a.log")
             exit(1)
-        print(f"Run of option {rmenu} was correctly achieved")
+        print(successStyle + f"Step {rmenu} ended successfully" + normalStyle)
 
     if rmenu == "1b":
         with open(f"scripts/runall1b.{scriptExt}", "w") as out:
@@ -1525,7 +1534,7 @@ def runs_1x():
         if p.returncode > 0:
             print(f"\nMain analysis execution failed, please check {current_dir}/outputs/res1b.log")
             exit(1)
-        print(f"Run of option {rmenu} was correctly achieved")
+        print(successStyle + f"Step {rmenu} ended successfully" + normalStyle)
 
     if rmenu == "1c":
         with open(f"scripts/runall1c.{scriptExt}", "w") as out:
@@ -1564,7 +1573,7 @@ def runs_1x():
         if p.returncode > 0:
             print(f"\nMain analysis execution failed, please check {current_dir}/outputs/res1c.log")
             exit(1)
-        print(f"Run of option {rmenu} was correctly achieved")
+        print(successStyle + f"Step {rmenu} ended successfully" + normalStyle)
 
     if rmenu == "1d":
         with open(f"scripts/runall1d.{scriptExt}", "w") as out:
@@ -1608,7 +1617,7 @@ def runs_1x():
         if p.returncode > 0:
             print(f"\nMain analysis execution failed, please check {current_dir}/outputs/res1d.log")
             exit(1)
-        print(f"Run of option {rmenu} was correctly achieved")
+        print(successStyle + f"Step {rmenu} ended successfully" + normalStyle)
 
     if rmenu == "1e":
         with open("scripts/runall1e." + scriptExt, "w") as out:
@@ -1640,10 +1649,10 @@ def runs_1x():
         sys.stdout.write("Quality checking is being processed, it is slow, be patient!\n\n")
         p = subprocess.run([shellCmd, "./runall1e." + scriptExt])
         if p.returncode > 0:
-            print(f"\nMain analysis execution failed, please check {current_dir}/outputs/res1e.log")
+            print(errorStyle + f"\nMain analysis execution failed, please check {current_dir}/outputs/res1e.log" + normalStyle)
             exit(1)
-        print(f"Run of option {rmenu} was correctly achieved")
-        sys.stdout.write("\nThe run option 1e is complete\n"
+        print(successStyle + f"Step {rmenu} ended successfully" + normalStyle)
+        sys.stdout.write(successStyle + "\nExecution of option 1e is complete\n" + normalStyle +
                          f"Statistical test files (*_quality.txt) are located at ---> {current_dir}/outputs\n\n")
         os.chdir(current_dir)
 
@@ -1730,8 +1739,7 @@ def stats_1x():
                     out.writelines(f"\t{nb_ref2} clusters of single-end (R1) sequences of {sample} affiliated "
                                     f"to locus {locus2}\n")
                     os.chdir(current_dir)
-            print("Complete\n"
-                  "\nThe MAIN MANDATORY ANALYSIS option 1 is complete\n")
+            print(successStyle + "\nThe MAIN MANDATORY ANALYSIS option 1 is complete\n" + normalStyle)
 
     elif rmenu == "1a":
         os.chdir(current_dir)
@@ -1811,8 +1819,7 @@ def stats_1x():
                     out.writelines(f"\t{nb_ref2} clusters of single-end (R1) sequences of {sample} affiliated "
                                     f"to locus {locus2}\n")
                     os.chdir(current_dir)
-            print("Complete\n"
-                  "\nThe RUN option 1a is complete\n")
+            print(successStyle + "\nExecution of option 1a is complete\n" + normalStyle)
 
     elif rmenu == "1b":
         os.chdir(current_dir)
@@ -1839,8 +1846,7 @@ def stats_1x():
                 c = b.count("sample")
                 out.write(f"\t{sample} has {c} clusters\n")
             os.chdir(current_dir)
-        print("Complete\n"
-              "\nThe RUN option 1b is complete\n")
+        print(successStyle + "\nExecution of option 1b is complete\n" + normalStyle)
 
     elif rmenu == "1c":
         os.chdir(current_dir)
@@ -1867,12 +1873,11 @@ def stats_1x():
                 c = b.count("sample")
                 out.write(f"\t{sample} has {c} clusters\n")
             os.chdir(current_dir)
-        print("Complete\n"
-              "\nThe RUN option 1c is complete\n")
+        print(successStyle + "\nExecution of option 1c is complete\n" + normalStyle)
 
     elif rmenu == "1d":
         os.chdir(current_dir)
-        print("\n\nComputing statistics after using option 1d, wait\n"
+        print("\nComputing statistics after using option 1d, wait\n"
               f"Results in ---> {current_dir}/outputs/Stats_option_1d.txt:")
         with open("outputs/Stats_option_1d.txt", "w") as out:
             out.write("With option 1d, parameters set to:\n\n"
@@ -1903,8 +1908,7 @@ def stats_1x():
                 c = b.count("sample")
                 out.write(f"\t{sam_sel} has {c} clusters for locus {locus2} based on single-end reads\n")
                 os.chdir(current_dir)
-        print("Complete\n"
-              "\nThe RUN option 1d is complete\n")
+        print(successStyle + "\nExecution of option 1d is complete\n" + normalStyle)
 
 
 def trim_2x():
@@ -2085,39 +2089,38 @@ def concat_3():
     if os.path.exists("outputs/Stats_option_3.txt"):
         os.remove("outputs/Stats_option_3.txt")
     while True:
-        loc2cat = input(titleColor + "\n----- CONCATENATION OF ALL SAMPLES BY LOCUS FOR PHYLOGENETIC ANALYZES -----" + normalColor + "\n"
-                        f"\nFor which LOCUS do you want to concatenate all sample sequences?\n"
+        loc2cat = input(titleStyle + "\n----- CONCATENATION OF ALL SAMPLES BY LOCUS FOR PHYLOGENETIC ANALYZES -----" + promptStyle + "\n"
+                        f"\nFor which LOCUS do you want to concatenate all sample sequences?\n" + normalStyle +
                         f"among {alloci}?\n"
                         f"OR 'end' 'home' 'exit': ")
         while loc2cat not in alloci and loc2cat not in ["end", "home", "exit"]:
-            loc2cat = input(warningColor + "\n--> WRONG INPUT: " + normalColor + " locus name is not valid, please enter a valid name \n"
+            loc2cat = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " locus name is not valid, please enter a valid name \n"
                             f"among {alloci}: ")
         else:
             if loc2cat in ["end", "home"]:
                 main()
             elif loc2cat == "exit":
                 sys.stdout.write("\nSee the results of concatenation session\n"
-                                 f"Results in ---> {current_dir}/outputs/Stats_option_3.txt\n"
-                                 "\n\nCLUSTERING SESSION FOR PHYLOGENETIC PAIRED-END LOCI is COMPLETE\n")
+                                 f"Results in ---> {current_dir}/outputs/Stats_option_3.txt\n" +
+                                 successStyle + "\n\nCLUSTERING SESSION FOR PHYLOGENETIC PAIRED-END LOCI is complete\n" + normalStyle)
                 sys.stdout.write("\n\tBye!...\n\n")
                 quit()
         stat_3 = open('./outputs/Stats_option_3.txt', 'a')
         os.chdir(f"./loci/{loc2cat}")
         files2cat = glob.glob('*_select.fas')
         if len(files2cat) == 0:
-            error(f"\nSequences for locus {loc2cat} have not been filtered using an abundance threshold. Please run step 2 on all loci for which you want to run step 3\n")
-            continue
-
-        with open(f"./{loc2cat}_allseq_select.fasta", "w") as out:
-            for file in files2cat:
-                if os.path.exists(file):
-                    with open(file, "r") as out2:
-                        out.write(out2.read())
-        tot = open("./" + loc2cat + "_allseq_select.fasta")
-        nb_tot = tot.read().count(">")
-        stat_3.writelines(f"The locus {loc2cat} has {nb_tot} sequences\n")
-        sys.stdout.write(f"\nLocus {loc2cat}: {nb_tot} sequences from {nb_samples} samples have been concatenated\n"
-                         f"Results in ---> {current_dir}/{loc2cat}/{loc2cat}_allseq_select.fasta\n")
+            print(errorStyle + f"\nSequences for locus {loc2cat} have not been filtered using an abundance threshold. Please run step 2 on all loci for which you want to run step 3\n" + normalStyle)
+        else:
+            with open(f"./{loc2cat}_allseq_select.fasta", "w") as out:
+                for file in files2cat:
+                    if os.path.exists(file):
+                        with open(file, "r") as out2:
+                            out.write(out2.read())
+            tot = open("./" + loc2cat + "_allseq_select.fasta")
+            nb_tot = tot.read().count(">")
+            stat_3.writelines(f"The locus {loc2cat} has {nb_tot} sequences\n")
+            sys.stdout.write(successStyle + f"\nLocus {loc2cat}: {nb_tot} sequences from {nb_samples} samples have been concatenated\n" + normalStyle +
+                             f"Results in ---> {current_dir}/{loc2cat}/{loc2cat}_allseq_select.fasta\n")
         os.chdir(current_dir)
         stat_3.close()
 
@@ -2138,22 +2141,22 @@ def prevent():
 
 
 def main_menu1():
-    """Displays the submenu 1
+    """Displays submenu 1
     """
     os.system("cls" if winOS else "clear")
     global rmenu
-    rmenu = input(titleColor + "\n----- BASIC ANALYSIS - only option 1 is strictly mandatory -----" + normalColor + "\n\n"
+    rmenu = input(titleStyle + "\n----- BASIC ANALYSIS - only option 1 is strictly mandatory -----" + normalStyle + "\n\n"
                   "1  -> NEW COMPLETE ANALYSIS (mandatory)\n"
                   "1a -> Re-analyze all loci, from the clustering step, modifying parameters\n"
                   "1b -> Re-analyze only one locus of paired-end amplicon (merged reads), modifying parameters\n"
                   "1c -> Re-analyze only one locus of single-end amplicon (R1 only), modifying parameters\n"
                   "1d -> Re-analyse only one sample, modifying parameters\n"
                   "1e -> Optional quality checking of fastq files (slow)\n\n"
-                  "\n" + promptColor + "Enter '1' '1a' '1b' '1c' '1d' '1e' to run analysis\n" + normalColor +
+                  "\n" + promptStyle + "Enter '1' '1a' '1b' '1c' '1d' '1e' to run analysis\n" + normalStyle +
                   "OR 'end' 'home' 'exit': ")
     while rmenu not in ['1', '1a', '1b', '1c', '1d', '1e', 'end', 'home', 'exit']:
-        rmenu = input(fwarningColor + "\n--> WRONG INPUT: " + normalColor + " Please enter a CORRECT NAME of an option\n"
-                      f" among '0' '1' '1a' '1b' '1c' '1d', 'home' 'exit': ")
+        rmenu = input(errorStyle + f"\n--> WRONG INPUT: " + normalStyle + " Please enter a CORRECT NAME of an option\n"
+                      f" among '1' '1a' '1b' '1c' '1d' '1e' 'home' 'exit': ")
     else:
         if rmenu in ["home", "end"]:
             main()
@@ -2176,11 +2179,11 @@ def main_menu1():
 
 
 def main_menu2():
-    """Displays the submenu 2
+    """Displays submenu 2
     """
     os.system("cls" if winOS else "clear")
     global rmenu
-    rmenu = input(titleColor + "\n----- SELECTION OF MINIMUM SEQUENCE ABUNDANCES ACCORDING TO USER-DEFINED THRESHOLDS -----" + normalColor + "\n\n"
+    rmenu = input(titleStyle + "\n----- SELECTION OF MINIMUM SEQUENCE ABUNDANCES ACCORDING TO USER-DEFINED THRESHOLDS -----" + normalStyle + "\n\n"
                   "2a -> Apply the SAME size threshold for ALL SAMPLES for the loci based on PAIRED-END reads "
                   "(R1/R2 merged)\n"
                   "\ti.e. you want to keep only sequences whose abundance (size)\n"
@@ -2196,10 +2199,10 @@ def main_menu2():
                   "2d -> Apply a SPECIFIC size threshold for EACH SAMPLE, for the loci based on SINGLE-END reads "
                   "(R1 only)\n"
                   "\tsame as option 2c but only using the R1 sequences instead of merged ones.\n\n"
-                  "\n" + promptColor + "Enter '2a' '2b' '2c' '2d' to run analysis\n" + normalColor +
+                  "\n" + promptStyle + "Enter '2a' '2b' '2c' '2d' to run analysis\n" + normalStyle +
                   "OR 'end' 'home' 'exit': ")
     while rmenu not in ['2a', '2b', '2c', '2d', 'end', 'home', 'exit']:
-        rmenu = input(fwarningColor + "\n--> WRONG INPUT: " + normalColor + " Please enter a GOOD NAME of an option\n"
+        rmenu = input(errorStyle + f"\n--> WRONG INPUT: " + normalStyle + " Please enter a CORRECT option number\n"
                       f" among '2a' '2b' '2c' '2d' 'end' 'home' 'exit': ")
     else:
         if rmenu in ["home", "end"]:
@@ -2218,12 +2221,46 @@ def main_menu2():
 
 
 def main_menu3():
-    """Displays the submenu 3
+    """Displays submenu 3
     """
     prevent()
     prev_param(None)
     concat_3()
     rerun()
+
+
+def main_menu4():
+    """Displays submenu 4
+    """
+    os.system("cls" if winOS else "clear")
+    global rmenu
+    rmenu = input(titleStyle + "\n----- CONVERSION OF ANALYSIS RESULTS INTO metaXplor IMPORT FORMAT -----" + normalStyle + "\n\n"
+                  "4a -> Generate sequence files\n"
+                  "\tCompiles all sequences selected for all loci into a single fasta\n"
+                  "\tOutputs a .tsv file indicating samples weights for each sequence\n\n"
+                  "4b -> Generate assignment file\n"
+                  "\tConverts blastn results (obtained from blasting above-mentioned fasta file) from 'Hit table (text)' (format #7) into metaXplor format\n\n"
+                  "4c -> Builds metaXplor-format sample metadata file from provided tabulated file\n\n"
+                  "4d -> Compresses all metaXplor files into a final, ready to import, zip archive\n\n"
+                  "\n" + promptStyle + "Enter '4a' '4b' '4c' '4d' to generate required types of files\n" + normalStyle +
+                  "OR 'end' 'home' 'exit': ")
+    while rmenu not in ['4a', '4b', '4c', '4d', 'end', 'home', 'exit']:
+        rmenu = input(errorStyle + f"\n--> WRONG INPUT: " + normalStyle + " Please enter a CORRECT option number\n"
+                      f" among '4a' '4b' '4c' '4d' 'end' 'home' 'exit': ")
+    else:
+        if rmenu in ["home", "end"]:
+            main()
+        elif rmenu == 'exit':
+            sys.stdout.write("\n\tBye!...\n\n")
+            quit()
+        elif rmenu == "4a":
+            menu4a()
+        elif rmenu == "4b":
+            menu4b()
+        elif rmenu == "4c":
+            menu4c()
+        elif rmenu == "4d":
+            menu4d(True)
 
 
 def menu1():
@@ -2404,13 +2441,391 @@ def menu3():
     rerun()
 
 
+def menu4a():
+    """Runs option 4a
+    """
+    prevent()
+    prev_param(None)
+    uniqueLoci = list(set(loci1s + loci2s))
+
+    with open(metaXplorFasta, "w") as fastaFile, open(metaXplorSequenceComposition, "w") as seqCompositionFile:
+        print("\nCompiling sequences for samples " + ", ".join(samples) + "\n")
+
+        i = 0
+        seqCompositionFile.write("qseqid")
+        while i < len(samples):
+            seqCompositionFile.write("\t" + samples[i])
+            i += 1
+
+        skippedLoci = []
+        i = 0
+        totalSeqCount = 0
+        while i < len(uniqueLoci):
+            try:
+                file1 = open("loci/" + uniqueLoci[i] + fileSep + uniqueLoci[i] + '_allseq_select.fasta', 'r')
+                lines = file1.readlines()
+
+                j = 0
+                seqCount = 0
+                while j < len(lines):
+                    line = lines[j].replace("\r\n", "").replace("\n", "")
+                    if line.startswith(">sample="):
+                        seqCount +=1
+                        qseqid = re.sub(r';size=.*', '', line.replace(">sample=", ""))
+                        fastaFile.write(">" + qseqid + "\n")
+                        seqCompositionFile.write("\n" + qseqid)
+
+                        k = 0
+                        while k < len(samples):
+                            seqCompositionFile.write("\t" + (line.split(";size=")[1] if qseqid.startswith(samples[k]) else "0"))
+                            k += 1
+                    else:
+                        fastaFile.write(lines[j])
+                    j += 1
+
+                print("Processed locus " + uniqueLoci[i] + " with " + str(seqCount) + " sequences")
+                totalSeqCount += seqCount
+            except FileNotFoundError:
+                print(warningStyle + "File not found: loci/" + uniqueLoci[i] + fileSep + uniqueLoci[i] + '_allseq_select.fasta: skipping locus ' + uniqueLoci[i] + normalStyle)
+                skippedLoci.append(uniqueLoci[i])
+            i += 1
+
+    if totalSeqCount == 0:
+        print(errorStyle + "\nNo concatenated sequences found for any loci. Please run step 3 before retrying" + normalStyle)
+        os.remove(metaXplorFasta)
+        os.remove(metaXplorSequenceComposition)
+    else:
+        print(successStyle + "\n" + str(totalSeqCount) + " project sequences were compiled into .fasta and .tsv files")
+        if len(skippedLoci) > 0:
+            print(warningStyle + "Warning: not all sequences could be included because concatenation step (#3) was not run on some loci: " + ", ".join(skippedLoci) + successStyle)
+        print("You may now run blastn on " + metaXplorFasta + ", download all results as 'Hit table (text)' (format #7), then come back and launch step 4b" + normalStyle)  
+    rerun()
+
+
+def menu4b():
+    """Runs option 4b
+    """
+    prevent()
+    prev_param(None)
+
+    blastTextHitTable = None
+    print()
+    while blastTextHitTable == None or blastTextHitTable.strip() == "" or (blastTextHitTable.strip() not in ['end', 'home', 'exit'] and not os.path.isfile(blastTextHitTable.strip())):
+        if blastTextHitTable != None and blastTextHitTable.strip() != "":
+            print(errorStyle + "\n--> UNEXISTING FILE: " + blastTextHitTable + normalStyle)
+        blastTextHitTable = input(promptStyle + "Enter path to blastn hit-table (text format #7): " + normalStyle)
+    if blastTextHitTable == "end":
+        main_menu4()
+    elif blastTextHitTable == "home":
+        main()
+    elif blastTextHitTable == "exit":
+        sys.stdout.write("\n\tBye!...\n\n")
+        quit()
+
+    with open(blastTextHitTable.strip(), "r") as infile:
+        lines = re.sub('\s\s+', '\t', infile.read()).splitlines()
+
+    if len(lines) == 0:
+        print(errorStyle + "Provided hit-table file is empty!" + normalStyle)
+        menu4b()
+
+    database = None
+    previousQseqId = None
+    blastType = lines[0].split(" ")[1].strip()
+
+    maxHits = None
+    print()
+    while maxHits == None or not maxHits.isnumeric() or int(maxHits) < 1:
+        if maxHits != None:
+            print(errorStyle + "\n--> WRONG INPUT: " + maxHits + normalStyle)
+        maxHits = input(promptStyle + "Enter maximum number of retained hits per query." + normalStyle + " Default is 5: ")
+        if maxHits == "":
+            maxHits = "5"
+    maxHits = int(maxHits)
+
+    print()
+    with open(metaXplorAssignments, "w") as outfile:
+        i = 0
+        nHitsForQseqId = 0
+        while i < len(lines):
+            if lines[i].startswith("#"):
+                if database == None and "Database:" in lines[i]:
+                    try:
+                        database = lines[i].split(" ")[2]
+                        if database == "nt":
+                            database = "n"
+                        elif database == "nr":
+                            database = "p"
+                        else:
+                            raise Exception("Unsupported Database type: " + database)
+                    except:
+                        print(errorStyle + "Unable to parse accession type prefix in '" + lines[i] + "'" + normalStyle)
+                        os.remove(metaXplorAssignments)
+                        menu4b()
+                elif previousQseqId == None and "Fields:" in lines[i]:
+                    outfile.write(lines[i].split(":")[1].strip().replace(", ", "\t").replace("query acc.ver", "qseqid").replace("subject acc.ver", "sseqid") + "\tassignment_method\tbest_hit\n")
+            else:
+                if database == None:
+                    print(errorStyle + "Unable to determine accession type prefix" + normalStyle)
+                    os.remove(metaXplorAssignments)
+                    menu4b()
+
+                splitLine = lines[i].strip().split("\t")
+                newQuery = previousQseqId != splitLine[0]
+                if newQuery:
+                    nHitsForQseqId = 0
+
+                if nHitsForQseqId < maxHits:
+                    j = 0
+                    while j < len(splitLine):
+                        if j > 0:
+                            outfile.write("\t")
+                        if j == 1:
+                            outfile.write(database + ":")
+                        outfile.write(splitLine[j])
+                        j += 1
+
+                    outfile.write("\t")
+                    outfile.write(blastType)
+                    outfile.write("\t")
+
+                    if newQuery:
+                        outfile.write("Y")
+                        previousQseqId = splitLine[0]
+                    
+                    outfile.write("\n")
+
+                nHitsForQseqId += 1
+            i += 1
+
+    print(successStyle + "File " + metaXplorAssignments + " was successfully written" + normalStyle)
+    menu4d(False)
+    rerun()
+
+
+def menu4c():
+    """Runs option 4c
+    """
+    prevent()
+    prev_param(None)
+
+    sampleMetadataFile = None
+    print("\nYou must now provide a tabulated metadata file for your samples. A header field named 'Sample' is expected for the column featuring sample names")
+    print("Any field with 'date' in its header name will be considered to be the sample collection date")
+    print("Collection location may be specified:")
+    print("\t- either as commma-separated decimal-format values in a single field named 'LatLon' (e.g. -17.7127, -67.9905)")
+    print("\t- or in separate columns named 'Latitude' and 'Longitude', in decimal format (e.g. -17.7127) or DMS format (e.g. 16°42'45.6\"S)")
+    print("Any additional columns will remain named as provided")
+    while sampleMetadataFile == None or sampleMetadataFile.strip() == "" or (sampleMetadataFile.strip() not in ['end', 'home', 'exit'] and not os.path.isfile(sampleMetadataFile.strip())):
+        if sampleMetadataFile != None and sampleMetadataFile.strip() != "":
+            print(errorStyle + "\n--> UNEXISTING FILE: " + sampleMetadataFile + normalStyle)
+        sampleMetadataFile = input(promptStyle + "Enter path to tabulated sample metadata file: " + normalStyle)
+    if sampleMetadataFile == "end":
+        main_menu4()
+    elif sampleMetadataFile == "home":
+        main()
+    elif sampleMetadataFile == "exit":
+        sys.stdout.write("\n\tBye!...\n\n")
+        quit()
+
+    print()
+    with open(sampleMetadataFile.strip(), "r") as infile:
+        lines = infile.read().splitlines()
+
+    if len(lines) == 0:
+        print(errorStyle + "Provided sample metadata file is empty!" + normalStyle)
+        menu4c()
+
+    headerCols = re.sub('\s\s+', '\t', lines[0]).split("\t")
+    sampleIndex = None
+    collectionDateIndex = None
+    latitudeIndex = None
+    longitudeIndex = None
+    latLonIndex = None
+
+    i = 0
+    while i < len(headerCols):
+        headerCol = headerCols[i].lower()
+        # print(str(i) + " : " + headerCol)
+        if "sample" in headerCol:
+            if sampleIndex != None:
+                print(errorStyle + "Ambiguity identifying sample name column between '" + headerCols[sampleIndex] + "'' and '" + headerCols[i] + "'" + normalStyle)
+                menu4c()
+            sampleIndex = i
+        elif "date" in headerCol:
+            if collectionDateIndex != None:
+                print(errorStyle + "Ambiguity identifying collection date column between '" + headerCols[collectionDateIndex] + "'' and '" + headerCols[i] + "'" + normalStyle)
+                menu4c()
+            collectionDateIndex = i
+        elif headerCol.startswith("lat"):
+            if "lon" in headerCol:
+                if latLonIndex != None:
+                    print(errorStyle + "Ambiguity identifying LatLon column between '" + headerCols[latLonIndex] + "'' and '" + headerCols[i] + "'" + normalStyle)
+                    menu4c()
+                latLonIndex = i
+            else:
+                if latitudeIndex != None:
+                    print(errorStyle + "Ambiguity identifying latitude column between '" + headerCols[latitudeIndex] + "'' and '" + headerCols[i] + "'" + normalStyle)
+                    menu4c()
+                latitudeIndex = i
+        elif headerCol.startswith("lon"):
+            if "lat" in headerCol:
+                if latLonIndex != None:
+                    print(errorStyle + "Ambiguity identifying LatLon column between '" + headerCols[latLonIndex] + "'' and '" + headerCols[i] + "'" + normalStyle)
+                    menu4c()
+                latLonIndex = i
+            else:
+                if longitudeIndex != None:
+                    print(errorStyle + "Ambiguity identifying longitude column between '" + headerCols[longitudeIndex] + "'' and '" + headerCols[i] + "'" + normalStyle)
+                    menu4c()
+                longitudeIndex = i
+        i += 1
+
+    if sampleIndex == None:
+        print(errorStyle + "Unable to identify sample name column! Please read instructions carefully and submit a corrected file" + normalStyle)
+        menu4c()
+
+    if latLonIndex == None and (not None not in [latitudeIndex, longitudeIndex]):
+        print(warningStyle + "Unable to identify latitude and/or longitude column(s)! Generated file will contain empty values for this field" + normalStyle)
+    if collectionDateIndex == None:
+        print(warningStyle + "Unable to identify collection date column! Generated file will contain empty values for this field" + normalStyle)
+
+    specialIndexes = [sampleIndex, latitudeIndex, longitudeIndex, latLonIndex, collectionDateIndex]
+    with open(metaXplorSamples, "w") as outfile:
+        j = 0
+
+        outfile.write("sample_name\tlat_lon\tcollection_date")
+        while j < len(headerCols):
+            if j not in specialIndexes:
+                outfile.write("\t" + headerCols[j])
+            j += 1
+        outfile.write("\n")
+        i = 1
+        samplesToProcess = samples.copy()
+        while i < len(lines):
+            splitLine = re.sub('  +', '\t', lines[i]).split("\t")
+
+            if splitLine[sampleIndex] not in samples:
+                print(warningStyle + "Skipping unknown sample: " + splitLine[sampleIndex] + normalStyle)
+            else:
+                while len(splitLine) < len(headerCols):
+                    splitLine.append("")
+
+                outfile.write(splitLine[sampleIndex] + "\t" + determineLatLon(splitLine, latLonIndex, latitudeIndex, longitudeIndex, sampleIndex) + "\t")
+                collDate = splitLine[collectionDateIndex].strip() if collectionDateIndex != None else None
+                if collDate != None:
+                    try:
+                        outfile.write(str(dateutil.parser.parse(collDate)).replace(" 00:00:00", ""))
+                    except Exception as e:
+                        print(errorStyle + "Unable to parse date at line " + str(i) + ": " + collDate + normalStyle)
+                        menu4c()
+
+                j = 0
+                while j < len(splitLine):
+                    if j not in specialIndexes:
+                        outfile.write("\t" + splitLine[j])
+                    j += 1
+                outfile.write("\n")
+                samplesToProcess.remove(splitLine[sampleIndex])
+            i += 1
+
+    if len(samplesToProcess) > 0:
+        print(errorStyle + "Provided file lacks lines for the following sample(s): " + ", ".join(samplesToProcess) + normalStyle)
+        os.remove(metaXplorSamples)
+    else:
+        print(successStyle + "File " + metaXplorSamples + " was successfully written" + normalStyle)
+    menu4d(False)
+    rerun()
+
+
+def menu4d(invokedByUser):
+    """Runs option 4d
+    """
+    if not os.path.isfile(metaXplorFasta) or os.path.getsize(metaXplorFasta) == 0:
+        if invokedByUser:
+            print(errorStyle + "\nFile " + metaXplorFasta + " is missing or empty. Please run step 4a" + normalStyle)
+        rerun()
+    if not os.path.isfile(metaXplorSequenceComposition) or os.path.getsize(metaXplorSequenceComposition) == 0:
+        if invokedByUser:
+            print(errorStyle + "\nFile " + metaXplorSequenceComposition + " is missing or empty. Please run step 4a" + normalStyle)
+        rerun()
+    if not os.path.isfile(metaXplorAssignments) or os.path.getsize(metaXplorAssignments) == 0:
+        if invokedByUser:
+            print(errorStyle + "\nFile " + metaXplorAssignments + " is missing or empty. Please run step 4b" + normalStyle)
+        rerun()
+    if not os.path.isfile(metaXplorSamples) or os.path.getsize(metaXplorSamples) == 0:
+        if invokedByUser:
+            print(errorStyle + "\nFile " + metaXplorSamples + " is missing or empty. Please run step 4c" + normalStyle)
+        rerun()
+
+    global zipNow
+    zipNow = input("All metaXplor files seem to be ready. Zip them now to create the final import file? Please enter 'yes' or 'no': ")
+    while zipNow not in ["yes", "no"]:
+        zipNow = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " Please enter 'yes' or 'no': ")
+
+    if zipNow == "yes":
+        b = io.BytesIO()
+        zf = zipfile.ZipFile(b, mode='w')
+        zf.write(metaXplorSamples, metaXplorSamples)
+        zf.write(metaXplorAssignments, metaXplorAssignments)
+        zf.write(metaXplorFasta, metaXplorFasta)
+        zf.write(metaXplorSequenceComposition, metaXplorSequenceComposition)
+        zf.close()
+        zipFileName = 'mbctools_metaXplor_export_' + datetime.datetime.strptime("12/10/2020", "%d/%m/%Y").strftime('%Y%m%d') + '.zip'
+        open(zipFileName, 'wb').write(b.getbuffer())
+        print(successStyle + "\nmetaXplor import archive was successfully created as " + zipFileName + normalStyle)
+    rerun()
+
+
+def determineLatLon(cellArray, latLonIndex, latitudeIndex, longitudeIndex, sampleIndex):
+    gotSeparateLatAndLong = None not in [latitudeIndex, longitudeIndex]
+    if latLonIndex != None:
+        splitCoords = cellArray[latLonIndex].replace(";", ",").split(",")
+        try:
+            return str(round(float(splitCoords[0]), 6)) + ", " + str(round(float(splitCoords[1]), 6))
+        except:
+            pass
+
+    latLon = ""
+    if gotSeparateLatAndLong:
+        try:
+            latLon += str(round(float(cellArray[latitudeIndex]), 6))
+        except:
+            try:
+                latLon += str(dmsToDecimal(cellArray[latitudeIndex]))
+            except:
+                latLon = ""
+        if latLon != "":
+            try:
+                latLon += ", " + str(round(float(cellArray[longitudeIndex]), 6))
+            except:
+                try:
+                    latLon += ", " + str(dmsToDecimal(cellArray[longitudeIndex]))
+                except:
+                    latLon = ""
+
+    if latLon == "":
+        msg = "Sample " + cellArray[sampleIndex] + ":"
+        if latLonIndex != None:
+            msg += " Unable to parse LatLon field" + ("" if gotSeparateLatAndLong else (" '" + cellArray[latLonIndex] + "'")) + "."
+        if gotSeparateLatAndLong:
+            msg += " Unable to parse latitude / longitude fields."
+        print(warningStyle + msg + normalStyle)
+    return latLon
+
+
+def dmsToDecimal(dmsString):
+    deg, minutes, seconds, direction = re.split('[°\'"]', dmsString.replace("''", "\"").replace(" ", ""))
+    return round((float(deg) + float(minutes)/60 + float(seconds)/(60*60)) * (-1 if direction.upper() in ['W', 'S'] else 1), 6)
+
+
 def rerun():
     """Prompts the user to continue using mbctools or not
     """
     global next_run
-    next_run = input("Do you want to continue with mbctools? enter 'yes' or 'no': ")
+    next_run = input("Do you want to continue with mbctools? Please enter 'yes' or 'no': ")
     while next_run not in ["yes", "no", ""]:
-        next_run = input(warningColor + "\n--> WRONG INPUT: " + normalColor + " Please enter 'yes' or 'no'\n"
+        next_run = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " Please enter 'yes' or 'no'\n"
                          "Default is 'yes': ")
     if next_run in ["yes", ""]:
         main()
@@ -2431,13 +2846,13 @@ def main():
             menu1()
             exit(0)
         else:
-            error("\n" + sys.argv[1] + " does not exist\n")
+            print(errorStyle + "\nUnexisting configuration file: " + sys.argv[1] + "\n" + normalStyle)
             exit(1)
 
     os.system("cls" if winOS else "clear")
 
     global menu
-    sys.stdout.write(titleColor + "-------------------- mbctools - MAIN MENU --------------------" + normalColor + "\n"
+    sys.stdout.write(titleStyle + "-------------------- mbctools - MAIN MENU --------------------" + normalStyle + "\n"
                      "\nValidate without typing anything enters the default value, if any\n"
                      "Entering 'end' returns to the program upper level, if any\n"
                      "Entering 'home' returns to this main menu\n"
@@ -2445,10 +2860,11 @@ def main():
     menu = input("\n1 -> BASIC ANALYZES\n\n"
                  "2 -> SELECTION OF MINIMUM SEQUENCE ABUNDANCES ACCORDING TO USER-DEFINED THRESHOLDS\n\n"
                  "3 -> CONCATENATION OF ALL SAMPLES BY LOCUS FOR PHYLOGENETIC ANALYZES\n\n"
-                 "\n" + promptColor + "Enter '1', '2', '3'\n" + normalColor +
+                 "4 -> CONVERSION OF ANALYSIS RESULTS INTO metaXplor IMPORT FORMAT\n\n"
+                 "\n" + promptStyle + "Enter '1', '2', '3', '4'\n" + normalStyle +
                  "OR 'exit' to quit the program: ")
-    while menu not in ['1', '2', '3', 'exit']:
-        menu = input(warningColor + "\n--> WRONG INPUT: " + normalColor + " Please enter a CORRECT NAME of an option among '1', '2', '3'\n"
+    while menu not in ['1', '2', '3', '4', 'exit']:
+        menu = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " Please enter a CORRECT NAME of an option among '1', '2', '3', '4'\n"
                      "OR 'exit' to quit the program: ")
     else:
         if menu == 'exit':
@@ -2460,7 +2876,12 @@ def main():
             main_menu2()
         if menu == '3':
             main_menu3()
+        if menu == '4':
+            main_menu4()
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print ("\n")
