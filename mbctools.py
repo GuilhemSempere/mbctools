@@ -469,7 +469,7 @@ def in_sam_sel():
     """Input of the sample name to rerun for option 1d
     """
     global sam_sel, samples
-    sam_sel = input(f"\n" + promptStyle + "Enter the sample name you want to rerun\n" + normalStyle +
+    sam_sel = input("\n" + promptStyle + f"Enter the sample name you want to rerun\n" + normalStyle +
                     f"among {samples}\n"
                     f"no default: ")
     while sam_sel not in samples and sam_sel not in ["end", "home", "exit"]:
@@ -601,7 +601,7 @@ def in_trim_sample2c():
     """Input of sample names for option 2c
     """
     global samples, sam2trim2c
-    sam2trim2c = input(f"\n" + promptStyle + "Enter SAMPLE do you want to trim among {samples}\n" + normalStyle +
+    sam2trim2c = input("\n" + promptStyle + f"Enter SAMPLE do you want to trim among {samples}\n" + normalStyle +
                        f"among {samples}?\n"
                        f"If you finished with locus {loc2trim2c} enter 'end': ")
     while sam2trim2c not in samples and sam2trim2c not in ["end", "home", "exit"]:
@@ -623,7 +623,7 @@ def in_trim_sample2d():
     """Input of sample names for option 2d
     """
     global samples, sam2trim2d
-    sam2trim2d = input(f"\n" + promptStyle + "Enter SAMPLE do you want to trim among {samples}\n" + normalStyle +
+    sam2trim2d = input("\n" + promptStyle + f"Enter SAMPLE do you want to trim among {samples}\n" + normalStyle +
                        f"among {samples}?\n"
                        f"If you finished with locus {loc2trim2d} enter 'end': ")
     while sam2trim2d not in samples and sam2trim2d not in ["end", "home", "exit"]:
@@ -647,7 +647,7 @@ def in_trim_left():
     """
     global trim_left, loc2trim2a, loc2trim2b,  loc2trim2c
     if rmenu == "2a":
-        trim_left = input(f"\n" + promptStyle + "Enter the number of bp of the left primer for {loc2trim2a}? (e.g. 20): " + normalStyle)
+        trim_left = input("\n" + promptStyle + f"Enter the number of bp of the left primer for {loc2trim2a}? (e.g. 20): " + normalStyle)
         while trim_left.isnumeric() is False and trim_left not in ["end", "home", "exit"]:
             trim_left = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " enter an integer corresponding to the length of the left primer (e.g. 20)\n"
                               "OR 'end' 'home' 'exit': ")
@@ -661,7 +661,7 @@ def in_trim_left():
                 quit()
 
     if rmenu == "2b":
-        trim_left = input(f"\n" + promptStyle + "Enter the number of bp of the left primer for {loc2trim2b}? (e.g. 20): " + normalStyle)
+        trim_left = input("\n" + promptStyle + f"Enter the number of bp of the left primer for {loc2trim2b}? (e.g. 20): " + normalStyle)
         while trim_left.isnumeric() is False and trim_left not in ["end", "home", "exit"]:
             trim_left = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " enter an integer corresponding to the length of the left primer (e.g. 20)\n"
                               "OR 'end' 'home' 'exit': ")
@@ -675,7 +675,7 @@ def in_trim_left():
                 quit()
 
     if rmenu == "2c":
-        trim_left = input(f"\n" + promptStyle + "Enter the number of bp of the left primer for {loc2trim2c}? (e.g. 20): " + normalStyle)
+        trim_left = input("\n" + promptStyle + f"Enter the number of bp of the left primer for {loc2trim2c}? (e.g. 20): " + normalStyle)
         while trim_left.isnumeric() is False and trim_left not in ["end", "home", "exit"]:
             trim_left = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " enter an integer corresponding to the length of the left primer (e.g. 20)\n"
                               "OR 'end' 'home' 'exit': ")
@@ -689,7 +689,7 @@ def in_trim_left():
                 quit()
 
     if rmenu == "2d":
-        trim_left = input(f"\n" + promptStyle + "Enter the number of bp of the left primer for {loc2trim2d}? (e.g. 20): " + normalStyle)
+        trim_left = input("\n" + promptStyle + f"Enter the number of bp of the left primer for {loc2trim2d}? (e.g. 20): " + normalStyle)
         while trim_left.isnumeric() is False and trim_left not in ["end", "home", "exit"]:
             trim_left = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " enter an integer corresponding to the length of the left primer (e.g. 20)\n"
                               "OR 'end' 'home' 'exit': ")
@@ -710,7 +710,7 @@ def in_trim_right():
     """
     global loc2trim2a, loc2trim2b, loc2trim2c, loc2trim2d, trim_right
     if rmenu == "2a":
-        trim_right = input(f"\n" + promptStyle + "Enter the number of bp of the right primer for {loc2trim2a}? (e.g. 22): " + normalStyle)
+        trim_right = input("\n" + promptStyle + f"Enter the number of bp of the right primer for {loc2trim2a}? (e.g. 22): " + normalStyle)
         while trim_right.isnumeric() is False and trim_right not in ["end", "home", "exit"]:
             trim_right = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " enter an integer corresponding to the length of the "
                                "right primer (e.g. 22)\n"
@@ -725,7 +725,7 @@ def in_trim_right():
                 quit()
 
     if rmenu == "2b":
-        trim_right = input(f"\n" + promptStyle + "Enter the number of bp of the right primer for {loc2trim2b}?\n" + normalStyle +
+        trim_right = input("\n" + promptStyle + f"Enter the number of bp of the right primer for {loc2trim2b}?\n" + normalStyle +
                            f"NB : may be 0 for single-end reads! (e.g. 22): ")
         while trim_right.isnumeric() is False and trim_right not in ["end", "home", "exit"]:
             trim_right = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " enter an integer corresponding to the length of the "
@@ -742,7 +742,7 @@ def in_trim_right():
                 quit()
 
     if rmenu == "2c":
-        trim_right = input(f"\n" + promptStyle + "Enter the number of bp of the right primer for {loc2trim2c}? (e.g. 22): " + normalStyle)
+        trim_right = input("\n" + promptStyle + f"Enter the number of bp of the right primer for {loc2trim2c}? (e.g. 22): " + normalStyle)
         while trim_right.isnumeric() is False and trim_right not in ["end", "home", "exit"]:
             trim_right = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " enter an integer corresponding to the length of the "
                                "right primer (e.g. 22)\n"
@@ -757,7 +757,7 @@ def in_trim_right():
                 quit()
 
     if rmenu == "2d":
-        trim_right = input(f"\n" + promptStyle + "Enter the number of bp of the right primer for {loc2trim2d}?\n" + normalStyle +
+        trim_right = input("\n" + promptStyle + f"Enter the number of bp of the right primer for {loc2trim2d}?\n" + normalStyle +
                            f"NB: may be 0 for single-end reads (e.g. 22): ")
         while trim_right.isnumeric() is False and trim_right not in ["end", "home", "exit"]:
             trim_right = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " enter an integer corresponding to the length of the "
@@ -780,7 +780,7 @@ def in_ts():
     """
     global ts, ts1, loc2trim2a, loc2trim2b, loc2trim2c, loc2trim2d
     if rmenu == "2a":
-        ts = input(f"\n" + promptStyle + "Enter the THRESHOLD (integer between 0 and 100) you want to use for this locus {loc2trim2a}\n" + normalStyle +
+        ts = input("\n" + promptStyle + f"Enter the THRESHOLD (integer between 0 and 100) you want to use for this locus {loc2trim2a}\n" + normalStyle +
                    f"Example: if you want to keep only the clusters whose abundance (size) is greater than 5%\n"
                    f"of the sum of sizes for each sample with {loc2trim2a}, enter 5\n"
                    f"no default: ")
@@ -801,7 +801,7 @@ def in_ts():
                 quit()
 
     if rmenu == "2b":
-        ts = input(f"\n" + promptStyle + "Enter the THRESHOLD (integer between 0 and 100) you want to use for this locus {loc2trim2b}\n" + normalStyle +
+        ts = input("\n" + promptStyle + f"Enter the THRESHOLD (integer between 0 and 100) you want to use for this locus {loc2trim2b}\n" + normalStyle +
                    f"Example: if you want to keep only the clusters whose abundance (size) is greater than 5%\n"
                    f"of the sum of sizes for each sample with {loc2trim2b}, enter 5\n"
                    f"no default: ")
@@ -822,7 +822,7 @@ def in_ts():
                 quit()
 
     if rmenu == "2c":
-        ts = input(f"\n" + promptStyle + "Enter the THRESHOLD (integer between 0 and 100) you want to use for this sample {sam2trim2c}\n" + normalStyle +
+        ts = input("\n" + promptStyle + f"Enter the THRESHOLD (integer between 0 and 100) you want to use for this sample {sam2trim2c}\n" + normalStyle +
                    f"Example: if you want to keep only the clusters whose abundance (size) is greater than 5%\n"
                    f"of the sum of sizes for {sam2trim2c}, enter 5\n"
                    f"no default: ")
@@ -843,7 +843,7 @@ def in_ts():
                 quit()
 
     if rmenu == "2d":
-        ts = input(f"\n" + promptStyle + "Enter the THRESHOLD (integer between 0 and 100) you want to use for this locus {loc2trim2d}\n" + normalStyle +
+        ts = input("\n" + promptStyle + f"Enter the THRESHOLD (integer between 0 and 100) you want to use for this locus {loc2trim2d}\n" + normalStyle +
                    f"Example: if you want to keep only the clusters whose abundance (size) is greater than 5%\n"
                    f"of the sum of sizes for each sample with {loc2trim2d}, enter 5\n"
                    f"no default: ")
@@ -2862,7 +2862,7 @@ def main():
 
     global menu
     sys.stdout.write(titleStyle + "-------------------- mbctools - MAIN MENU --------------------" + normalStyle + "\n"
-                     "\nValidate without typing anything enters the default value, if any\n"
+                     "\nValidating without typing anything applies the default value, if any\n"
                      "Entering 'end' returns to the program upper level, if any\n"
                      "Entering 'home' returns to this main menu\n"
                      "Entering 'exit' leaves the program\n\n")
