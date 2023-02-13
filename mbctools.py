@@ -88,6 +88,7 @@ normalStyle = "\033[0m"
 titleStyle = "\033[94m\033[1m"
 promptStyle = "\033[96m"
 successStyle = "\033[92m"
+citationStyle = "\033[1;33m\033[1m\033[3m"
 
 metaXplorFasta = "metaXplor_sequences.fasta"
 metaXplorSequenceComposition = "metaXplor_sequences.tsv"
@@ -201,8 +202,7 @@ def in_dir_fastq():
         elif dir_fastq == "home":
             main()
         elif dir_fastq == "exit":
-            sys.stdout.write("\n\tBye!...\n\n")
-            quit()
+            quit_mbctools()
 
 
 def in_fastqr1_user():
@@ -223,8 +223,7 @@ def in_fastqr1_user():
         elif fastqr1_user == "home":
             main()
         elif fastqr1_user == "exit":
-            sys.stdout.write("\n\tBye!...\n\n")
-            quit()
+            quit_mbctools()
     with open(fastqr1_user, "r") as out1:
         fastqr1s = out1.read().splitlines()
 
@@ -247,8 +246,7 @@ def in_fastqr2_user():
         elif fastqr2_user == "home":
             main()
         elif fastqr2_user == "exit":
-            sys.stdout.write("\n\tBye!...\n\n")
-            quit()
+            quit_mbctools()
     with open(fastqr2_user, "r") as out2:
         fastqr2s = out2.read().splitlines()
 
@@ -271,8 +269,7 @@ def in_loci1_user():
         elif loci1_user == "home":
             main()
         elif loci1_user == "exit":
-            sys.stdout.write("\n\tBye!...\n\n")
-            quit()
+            quit_mbctools()
     with open(loci1_user, "r") as out:
         loci1s = out.read().splitlines()
     return loci1s
@@ -296,8 +293,7 @@ def in_loci2_user():
         elif loci2_user == "home":
             main()
         elif loci2_user == "exit":
-            sys.stdout.write("\n\tBye!...\n\n")
-            quit()
+            quit_mbctools()
     with open(loci2_user, "r") as out:
         loci2s = out.read().splitlines()
     return loci2s
@@ -321,8 +317,7 @@ def in_sample_user():
         elif sample_user == "home":
             main()
         elif sample_user == "exit":
-            sys.stdout.write("\n\tBye!...\n\n")
-            quit()
+            quit_mbctools()
     with open(sample_user, "r") as out5:
         samples = out5.read().splitlines()
 
@@ -347,8 +342,7 @@ def in_minsize_user():
         elif minsize_user == "home":
             main()
         elif minsize_user == "exit":
-            sys.stdout.write("\n\tBye!...\n\n")
-            quit()
+            quit_mbctools()
 
 
 def in_minseqlength():
@@ -370,8 +364,7 @@ def in_minseqlength():
         elif minseqlength == "home":
             main()
         elif minseqlength == "exit":
-            sys.stdout.write("\n\tBye!...\n\n")
-            quit()
+            quit_mbctools()
 
 
 def in_alpha():
@@ -393,8 +386,7 @@ def in_alpha():
         elif alpha == "home":
             main()
         elif alpha == "exit":
-            sys.stdout.write("\n\tBye!...\n\n")
-            quit()
+            quit_mbctools()
 
 
 def in_identity():
@@ -419,8 +411,7 @@ def in_identity():
         if identity.isnumeric() and int(identity) < 100:
             identity = int(identity) / 100
         if identity == "exit":
-            sys.stdout.write("\n\tBye!...\n\n")
-            quit()
+            quit_mbctools()
 
 
 def in_loc_sel_merged():
@@ -440,8 +431,7 @@ def in_loc_sel_merged():
         elif loc_sel1 == "home":
             main()
         elif loc_sel1 == "exit":
-            sys.stdout.write("\n\tBye!...\n\n")
-            quit()
+            quit_mbctools()
 
 
 def in_loc_sel_r1():
@@ -461,8 +451,7 @@ def in_loc_sel_r1():
         elif loc_sel2 == "home":
             main()
         elif loc_sel2 == "exit":
-            sys.stdout.write("\n\tBye!...\n\n")
-            quit()
+            quit_mbctools()
 
 
 def in_sam_sel():
@@ -483,8 +472,7 @@ def in_sam_sel():
         elif sam_sel == "home":
             main()
         elif sam_sel == "exit:":
-            sys.stdout.write("\n\tBye!...\n\n")
-            quit()
+            quit_mbctools()
 
 
 def in_loc2trim_2x():
@@ -498,14 +486,14 @@ def in_loc2trim_2x():
                            "OR\n"
                            "'end' to run another option 2x\n"
                            "'home' to return to main menu\n"
-                           "'exit' if done with procedure 2a: ")
+                           "'exit' to terminate current session: ")
         while loc2trim2a not in loci1s and loc2trim2a not in ["end", "home", "exit"]:
             loc2trim2a = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " locus name is not valid, please enter a valid name\n"
                                f"among {loci1s}\n"
                                "OR\n"
                                "'end' to run an option 2a\n"
                                "'home' to return to main menu\n"
-                               "'exit' if done with procedure 2a: ")
+                               "'exit' to terminate current session: ")
         if loc2trim2a == "end":
             main_menu2()
         if loc2trim2a == "home":
@@ -514,8 +502,7 @@ def in_loc2trim_2x():
             sys.stdout.write("\nSelection of minimum sizes according to user-defined thresholds is achieved\n"
                              "Statistical summary for paired-end based loci:\n"
                              f"Results in ---> {current_dir}/outputs/Stats_option_2a.txt\n")
-            sys.stdout.write("\n\tBye!...\n\n")
-            quit()
+            quit_mbctools()
         return loc2trim2a
 
     if rmenu == "2b":
@@ -524,14 +511,14 @@ def in_loc2trim_2x():
                            "OR\n"
                            "'end' to run another option 2x\n"
                            "'home' to return to main menu\n"
-                           "'exit' if done with procedure 2b: ")
+                           "'exit' to terminate current session: ")
         while loc2trim2b not in loci2s and loc2trim2b not in ["end", "home", "exit"]:
             loc2trim2b = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " locus name is not valid, please enter a valid name\n"
                                f"among {loci2s}\n"
                                "OR\n"
                                "'end' to run an option 2x\n"
                                "'home' to return to main menu\n"
-                               "'exit' if done with procedure 2b: ")
+                               "'exit' to terminate current session: ")
         if loc2trim2b == "end":
             main_menu2()
         if loc2trim2b == "home":
@@ -540,8 +527,7 @@ def in_loc2trim_2x():
             sys.stdout.write("\nSelection of minimum sizes according to user-defined thresholds is achieved\n"
                              "Statistical summary for paired-end based loci:\n"
                              f"Results in ---> {current_dir}/outputs/Stats_option_2a.txt\n")
-            sys.stdout.write("\n\tBye!...\n\n")
-            quit()
+            quit_mbctools()
         return loc2trim2b
 
     if rmenu == "2c":
@@ -550,14 +536,14 @@ def in_loc2trim_2x():
                            "OR\n"
                            "'end' to run another option 2x\n"
                            "'home' to return to main menu\n"
-                           "'exit' if done with procedure 2c: ")
+                           "'exit' to terminate current session: ")
         while loc2trim2c not in loci1s and loc2trim2c not in ["end", "home", "exit"]:
             loc2trim2c = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " locus name is not valid, please enter a valid name\n"
                                f"among {loci1s}\n"
                                "OR\n"
                                "'end' to run an option 2x\n"
                                "'home' to return to main menu\n"
-                               "'exit' if done with procedure 2c: ")
+                               "'exit' to terminate current session: ")
         if loc2trim2c == "end":
             main_menu2()
         if loc2trim2c == "home":
@@ -566,8 +552,7 @@ def in_loc2trim_2x():
             sys.stdout.write("\nSelection of minimum sizes according to user-defined thresholds is achieved\n"
                              "Statistical summary for paired-end based loci:\n"
                              f"Results in ---> {current_dir}/outputs/Stats_option_2c.txt\n")
-            sys.stdout.write("\n\tBye!...\n\n")
-            quit()
+            quit_mbctools()
         return loc2trim2c
 
     if rmenu == "2d":
@@ -576,14 +561,14 @@ def in_loc2trim_2x():
                            "OR\n"
                            "'end' to run another option 2x\n"
                            "'home' to return to main menu\n"
-                           "'exit' if done with procedure 2d: ")
+                           "'exit' to terminate current session: ")
         while loc2trim2d not in loci2s and loc2trim2d not in ["end", "home", "exit"]:
             loc2trim2d = input(errorStyle + "\n--> WRONG INPUT: " + normalStyle + " locus name is not valid, please enter a valid name\n"
                                f"among {loci2s}\n"
                                "OR\n"
                                "'end' to run an option 2x\n"
                                "'home' to return to main menu\n"
-                               "'exit' if done with procedure 2d: ")
+                               "'exit' to terminate current session: ")
         if loc2trim2d == "end":
             main_menu2()
         if loc2trim2d == "home":
@@ -592,8 +577,7 @@ def in_loc2trim_2x():
             sys.stdout.write("\nSelection of minimum sizes according to user-defined thresholds is achieved\n"
                              "Statistical summary for paired-end based loci:\n"
                              f"Results in ---> {current_dir}/outputs/Stats_option_2d.txt\n")
-            sys.stdout.write("\n\tBye!...\n\n")
-            quit()
+            quit_mbctools()
         return loc2trim2d
 
 
@@ -614,8 +598,7 @@ def in_trim_sample2c():
         if sam2trim2c == "home":
             main_menu2()
         if sam2trim2c == "exit":
-            sys.stdout.write("\n\tBye!...\n\n")
-            quit()
+            quit_mbctools()
     return sam2trim2c
 
 
@@ -636,8 +619,7 @@ def in_trim_sample2d():
         if sam2trim2d == "home":
             main_menu2()
         if sam2trim2d == "exit":
-            sys.stdout.write("\n\tBye!...\n\n")
-            quit()
+            quit_mbctools()
     return sam2trim2d
 
 
@@ -657,8 +639,7 @@ def in_trim_left():
             elif trim_left == "home":
                 main()
             elif trim_left == "exit":
-                sys.stdout.write("\n\tBye!...\n\n")
-                quit()
+                    quit_mbctools()
 
     if rmenu == "2b":
         trim_left = input("\n" + promptStyle + f"Enter the number of bp of the left primer for {loc2trim2b}? (e.g. 20): " + normalStyle)
@@ -671,8 +652,7 @@ def in_trim_left():
             elif trim_left == "home":
                 main()
             elif trim_left == "exit":
-                sys.stdout.write("\n\tBye!...\n\n")
-                quit()
+                    quit_mbctools()
 
     if rmenu == "2c":
         trim_left = input("\n" + promptStyle + f"Enter the number of bp of the left primer for {loc2trim2c}? (e.g. 20): " + normalStyle)
@@ -685,8 +665,7 @@ def in_trim_left():
             elif trim_left == "home":
                 main()
             elif trim_left == "exit":
-                sys.stdout.write("\n\tBye!...\n\n")
-                quit()
+                    quit_mbctools()
 
     if rmenu == "2d":
         trim_left = input("\n" + promptStyle + f"Enter the number of bp of the left primer for {loc2trim2d}? (e.g. 20): " + normalStyle)
@@ -699,8 +678,7 @@ def in_trim_left():
             elif trim_left == "home":
                 main()
             elif trim_left == "exit":
-                sys.stdout.write("\n\tBye!...\n\n")
-                quit()
+                    quit_mbctools()
     return trim_left
 
 
@@ -721,8 +699,7 @@ def in_trim_right():
             elif trim_right == "home":
                 main()
             elif trim_right == "exit":
-                sys.stdout.write("\n\tBye!...\n\n")
-                quit()
+                    quit_mbctools()
 
     if rmenu == "2b":
         trim_right = input("\n" + promptStyle + f"Enter the number of bp of the right primer for {loc2trim2b}?\n" + normalStyle +
@@ -738,8 +715,7 @@ def in_trim_right():
             elif trim_right == "home":
                 main()
             elif trim_right == "exit":
-                sys.stdout.write("\n\tBye!...\n\n")
-                quit()
+                    quit_mbctools()
 
     if rmenu == "2c":
         trim_right = input("\n" + promptStyle + f"Enter the number of bp of the right primer for {loc2trim2c}? (e.g. 22): " + normalStyle)
@@ -753,8 +729,7 @@ def in_trim_right():
             elif trim_right == "home":
                 main()
             elif trim_right == "exit":
-                sys.stdout.write("\n\tBye!...\n\n")
-                quit()
+                    quit_mbctools()
 
     if rmenu == "2d":
         trim_right = input("\n" + promptStyle + f"Enter the number of bp of the right primer for {loc2trim2d}?\n" + normalStyle +
@@ -770,8 +745,7 @@ def in_trim_right():
             elif trim_right == "home":
                 main()
             elif trim_right == "exit":
-                sys.stdout.write("\n\tBye!...\n\n")
-                quit()
+                    quit_mbctools()
     return trim_right
 
 
@@ -797,8 +771,7 @@ def in_ts():
             if ts.isnumeric() and int(ts) < 100:
                 ts1 = int(ts) / 100
             if ts == "exit":
-                sys.stdout.write("\n\tBye!...\n\n")
-                quit()
+                    quit_mbctools()
 
     if rmenu == "2b":
         ts = input("\n" + promptStyle + f"Enter the THRESHOLD (integer between 0 and 100) you want to use for this locus {loc2trim2b}\n" + normalStyle +
@@ -818,8 +791,7 @@ def in_ts():
             if ts.isnumeric() and int(ts) < 100:
                 ts1 = int(ts) / 100
             if ts == "exit":
-                sys.stdout.write("\n\tBye!...\n\n")
-                quit()
+                    quit_mbctools()
 
     if rmenu == "2c":
         ts = input("\n" + promptStyle + f"Enter the THRESHOLD (integer between 0 and 100) you want to use for this sample {sam2trim2c}\n" + normalStyle +
@@ -839,8 +811,7 @@ def in_ts():
             if ts.isnumeric() and int(ts) < 100:
                 ts1 = int(ts) / 100
             if ts == "exit":
-                sys.stdout.write("\n\tBye!...\n\n")
-                quit()
+                    quit_mbctools()
 
     if rmenu == "2d":
         ts = input("\n" + promptStyle + f"Enter the THRESHOLD (integer between 0 and 100) you want to use for this locus {loc2trim2d}\n" + normalStyle +
@@ -860,8 +831,7 @@ def in_ts():
             if ts.isnumeric() and int(ts) < 100:
                 ts1 = int(ts) / 100
             if ts == "exit":
-                sys.stdout.write("\n\tBye!...\n\n")
-                quit()
+                    quit_mbctools()
     return ts, ts1
 
 
@@ -2098,7 +2068,7 @@ def concat_3():
     if os.path.exists("outputs/Stats_option_3.txt"):
         os.remove("outputs/Stats_option_3.txt")
     while True:
-        loc2cat = input(titleStyle + "\n----- CONCATENATION OF ALL SAMPLES BY LOCUS FOR PHYLOGENETIC ANALYZES -----" + promptStyle + "\n"
+        loc2cat = input(titleStyle + "\n----- MENU 3 - CONCATENATION OF ALL SAMPLES BY LOCUS FOR PHYLOGENETIC ANALYZES -----" + promptStyle + "\n"
                         f"\nFor which LOCUS do you want to concatenate all sample sequences?\n" + normalStyle +
                         f"among {alloci}?\n"
                         f"OR 'end' 'home' 'exit': ")
@@ -2112,8 +2082,7 @@ def concat_3():
                 sys.stdout.write("\nSee the results of concatenation session\n"
                                  f"Results in ---> {current_dir}/outputs/Stats_option_3.txt\n" +
                                  successStyle + "\n\nCLUSTERING SESSION FOR PHYLOGENETIC PAIRED-END LOCI is complete\n" + normalStyle)
-                sys.stdout.write("\n\tBye!...\n\n")
-                quit()
+                quit_mbctools()
         stat_3 = open('./outputs/Stats_option_3.txt', 'a')
         os.chdir(f"./loci/{loc2cat}")
         files2cat = glob.glob('*_select.fas')
@@ -2139,14 +2108,25 @@ def prevent():
     """
     global current_dir
     if os.path.isfile(f"{current_dir}/outputs/parameters_option_1.cfg") is False:
-        sys.stdout.write("\nYou have to previously run mandatory OPTION 1 before running this option \n")
-        q = input("\nDo you want to run OPTION 1?, reply 'yes' 'no': ")
+        sys.stdout.write("\nYou have to run mandatory OPTION 1 " + warningStyle + "before" + normalStyle + " running this option \n")
+        q = input(promptStyle + "\nDo you want to run OPTION 1? Reply 'yes', or anything else to exit: " + normalStyle)
         if q == 'yes':
-            main()
-            quit()
+            main_menu1()
+            quit_mbctools()
         else:
-            sys.stdout.write("\n\n")
-            quit()
+            quit_mbctools()
+
+
+def quit_mbctools():
+    print(successStyle + "\n\nThanks for using mbctools!" + normalStyle)
+    printHowToCite()
+    quit()
+
+
+def printHowToCite():
+    print("\nPlease cite this software as follows:" +
+    citationStyle + "\nmbctools: An open source tool to facilitate DNA sequence data analysis using VSEARCH in metabarcoding studies"
+    "\nChristian Barnabé, Guilhem Sempéré and Etienne Waleckx. https://github.com/GuilhemSempere/mbctools" + normalStyle + "\n\n")
 
 
 def main_menu1():
@@ -2154,7 +2134,7 @@ def main_menu1():
     """
     os.system("cls" if winOS else "clear")
     global rmenu
-    rmenu = input(titleStyle + "\n----- BASIC ANALYSIS - only option 1 is strictly mandatory -----" + normalStyle + "\n\n"
+    rmenu = input(titleStyle + "\n----- MENU 1 - BASIC ANALYSIS - only option 1 is strictly mandatory -----" + normalStyle + "\n\n"
                   "1  -> NEW COMPLETE ANALYSIS (mandatory)\n"
                   "1a -> Re-analyze all loci, from the clustering step, modifying parameters\n"
                   "1b -> Re-analyze only one locus of paired-end amplicon (merged reads), modifying parameters\n"
@@ -2170,8 +2150,7 @@ def main_menu1():
         if rmenu in ["home", "end"]:
             main()
         elif rmenu == 'exit':
-            sys.stdout.write("\n\tBye!...\n\n")
-            quit()
+            quit_mbctools()
         elif rmenu == "1e":
             menu1e()
         elif rmenu == "1":
@@ -2192,7 +2171,7 @@ def main_menu2():
     """
     os.system("cls" if winOS else "clear")
     global rmenu
-    rmenu = input(titleStyle + "\n----- SELECTION OF MINIMUM SEQUENCE ABUNDANCES ACCORDING TO USER-DEFINED THRESHOLDS -----" + normalStyle + "\n\n"
+    rmenu = input(titleStyle + "\n----- MENU 2 - SELECTION OF MINIMUM SEQUENCE ABUNDANCES ACCORDING TO USER-DEFINED THRESHOLDS -----" + normalStyle + "\n\n"
                   "2a -> Apply the SAME size threshold for ALL SAMPLES for the loci based on PAIRED-END reads "
                   "(R1/R2 merged)\n"
                   "\ti.e. you want to keep only sequences whose abundance (size)\n"
@@ -2217,8 +2196,7 @@ def main_menu2():
         if rmenu in ["home", "end"]:
             main()
         elif rmenu == 'exit':
-            sys.stdout.write("\n\tBye!...\n\n")
-            quit()
+            quit_mbctools()
         elif rmenu == "2a":
             menu2a()
         elif rmenu == "2b":
@@ -2243,7 +2221,7 @@ def main_menu4():
     """
     os.system("cls" if winOS else "clear")
     global rmenu
-    rmenu = input(titleStyle + "\n----- CONVERSION OF ANALYSIS RESULTS INTO metaXplor IMPORT FORMAT -----" + normalStyle + "\n\n"
+    rmenu = input(titleStyle + "\n----- MENU 4 - CONVERSION OF ANALYSIS RESULTS INTO metaXplor IMPORT FORMAT -----" + normalStyle + "\n\n"
                   "4a -> Generate sequence files\n"
                   "\tCompiles all sequences selected for all loci into a single fasta\n"
                   "\tOutputs a .tsv file indicating samples weights for each sequence\n\n"
@@ -2260,8 +2238,7 @@ def main_menu4():
         if rmenu in ["home", "end"]:
             main()
         elif rmenu == 'exit':
-            sys.stdout.write("\n\tBye!...\n\n")
-            quit()
+            quit_mbctools()
         elif rmenu == "4a":
             menu4a()
         elif rmenu == "4b":
@@ -2528,8 +2505,7 @@ def menu4b():
     elif blastTextHitTable == "home":
         main()
     elif blastTextHitTable == "exit":
-        sys.stdout.write("\n\tBye!...\n\n")
-        quit()
+        quit_mbctools()
 
     with open(blastTextHitTable.strip(), "r") as infile:
         lines = re.sub('\s\s+', '\t', infile.read()).splitlines()
@@ -2634,8 +2610,7 @@ def menu4c():
     elif sampleMetadataFile == "home":
         main()
     elif sampleMetadataFile == "exit":
-        sys.stdout.write("\n\tBye!...\n\n")
-        quit()
+        quit_mbctools()
 
     print()
     with open(sampleMetadataFile.strip(), "r") as infile:
@@ -2839,8 +2814,7 @@ def rerun():
     if next_run in ["yes", ""]:
         main()
     if next_run == "no":
-        sys.stdout.write("\n\tBye!...\n\n")
-        quit()
+        quit_mbctools()
 
 
 def main():
@@ -2861,11 +2835,12 @@ def main():
     os.system("cls" if winOS else "clear")
 
     global menu
-    sys.stdout.write(titleStyle + "-------------------- mbctools - MAIN MENU --------------------" + normalStyle + "\n"
-                     "\nValidating without typing anything applies the default value, if any\n"
-                     "Entering 'end' returns to the program upper level, if any\n"
-                     "Entering 'home' returns to this main menu\n"
-                     "Entering 'exit' leaves the program\n\n")
+    sys.stdout.write(titleStyle + "-------------------- mbctools - MAIN MENU --------------------" + normalStyle + "\n")
+    printHowToCite()
+    sys.stdout.write("Validating without typing anything applies the default value, if any\n"
+                    "Entering 'end' returns to the program upper level, if any\n"
+                    "Entering 'home' returns to this main menu\n"
+                    "Entering 'exit' leaves the program\n\n")
     menu = input("\n1 -> BASIC ANALYZES\n\n"
                  "2 -> SELECTION OF MINIMUM SEQUENCE ABUNDANCES ACCORDING TO USER-DEFINED THRESHOLDS\n\n"
                  "3 -> CONCATENATION OF ALL SAMPLES BY LOCUS FOR PHYLOGENETIC ANALYZES\n\n"
@@ -2877,8 +2852,7 @@ def main():
                      "OR 'exit' to quit the program: ")
     else:
         if menu == 'exit':
-            sys.stdout.write("\n\tBye!...\n\n")
-            quit()
+            quit_mbctools()
         if menu == '1':
             main_menu1()
         if menu == '2':
