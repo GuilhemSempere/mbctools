@@ -95,7 +95,7 @@ if winOS:
 	command = 'powershell.exe Get-ExecutionPolicy'
 	process = subprocess.Popen(command, stdout=subprocess.PIPE)
 	result = process.communicate()[0].strip()
-	execution_policy = result.decode('utf-8')
+	execution_policy = result.decode()
 	if execution_policy != 'Unrestricted':
 		print(errorStyle + "\nPlease run the following command in Windows prompt to be able to use mbctools:\n" + normalStyle + "\nSet-ExecutionPolicy Unrestricted -Scope CurrentUser -Force\n")
 		exit(0)
