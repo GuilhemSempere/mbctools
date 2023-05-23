@@ -2174,6 +2174,10 @@ def menu4a():
 			print(
 				warningStyle + "Warning: not all sequences could be included because concatenation step (#3) was not run on some loci: " + ", ".join(derepResults[1]) + successStyle)
 		print("You may now run blastn on " + metaXplorFasta + ", download all results as 'Hit table (text)' (format #7), then come back and launch step 4b" + normalStyle)
+		print(warningStyle + "\nNB: The appropriate format required by step 4b may be obtained by either:" + normalStyle
+			+ "\n - if using NCBI online BLAST interface, selecting 'Hit table (text)' from the 'Download All' dropdown list"
+			+ "\n - if executing command line BLAST, specifying the following argument: -outfmt 7\n"
+			+ "(Its header must contain a line starting with: " + citationStyle + "'# Fields: query acc.ver, subject acc.ver, '" + normalStyle + ")")
 		rerun(main_menu4)
 
 
@@ -2182,6 +2186,11 @@ def menu4b():
 	"""
 	prevent()
 	prev_param(None)
+
+	print(warningStyle + "\nNB: The appropriate format required by step 4b may be obtained by either:" + normalStyle
+		+ "\n - if using NCBI online BLAST interface, selecting 'Hit table (text)' from the 'Download All' dropdown list"
+		+ "\n - if executing command line BLAST, specifying the following argument: -outfmt 7\n"
+		+ "(Its header must contain a line starting with: " + citationStyle + "'# Fields: query acc.ver, subject acc.ver, '" + normalStyle + ")")
 
 	blastTextHitTable = promptUser("Enter path to blastn hit-table (text format #7)", None, ["back", "home", "exit"], 3, main_menu4, "")
 	with open(blastTextHitTable.strip(), "r") as infile:
@@ -2516,14 +2525,15 @@ def main():
 
 	sys.stdout.write(titleStyle + "-------------------- mbctools - MAIN MENU --------------------" + normalStyle + "\n")
 	printHowToCite()
-	sys.stdout.write("Validating without typing anything applies the default value, if any\n"
+	sys.stdout.write(titleStyle + "NAVIGATION CONVENTIONS:\n" + warningStyle + "Validating without typing anything applies the default value, if any\n" + normalStyle +
 					 "Entering '" + promptStyle + "back" + normalStyle + "' returns to the program upper level, if any\n"
 					 "Entering '" + promptStyle + "home" + normalStyle + "' returns to this main menu\n"
 					 "Entering '" + promptStyle + "exit" + normalStyle + "' leaves the program\n\n")
-	print("\n1 -> BASIC ANALYZES\n\n"
-				 "2 -> REMOVAL OF PRIMERS AND SELECTION OF MINIMUM SEQUENCE ABUNDANCES ACCORDING TO USER-DEFINED THRESHOLDS\n\n"
-				 "3 -> GENERATION OF A UNIQUE SEQUENCE FILE FOR EACH LOCUS (comprising all samples' data)\n\n"
-				 "4 -> CONVERSION OF ANALYSIS RESULTS INTO metaXplor IMPORT FORMAT\n")
+	print(titleStyle + "\nWe recommend executing procedures in the provided order:\n" + normalStyle)
+	print(	"1 -> BASIC ANALYZES\n\n"
+			"2 -> REMOVAL OF PRIMERS AND SELECTION OF MINIMUM SEQUENCE ABUNDANCES ACCORDING TO USER-DEFINED THRESHOLDS\n\n"
+			"3 -> GENERATION OF A UNIQUE SEQUENCE FILE FOR EACH LOCUS (comprising all samples' data)\n\n"
+			"4 -> CONVERSION OF ANALYSIS RESULTS INTO metaXplor IMPORT FORMAT\n")
 
 	global menu
 	menu = promptUser("Please select an option among those listed above", None, ["1", "2", "3", "4", "exit"], 1, None, "")
