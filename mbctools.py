@@ -1742,7 +1742,7 @@ def main_menu1():
 	"""Displays submenu 1
 	"""
 	os.system("cls" if winOS else "clear")
-	print(titleStyle + "\n----- MENU 1 - BASIC ANALYSIS - only option 1 is strictly mandatory -----" + normalStyle + "\n\n"
+	print(titleStyle + "\n---- MENU 1 - BASIC ANALYSIS - only option 1 is strictly mandatory ----" + normalStyle + "\n\n"
 															   "1  -> NEW COMPLETE ANALYSIS (" + warningStyle + "mandatory" + normalStyle + ")\n"
 															   "1a -> Re-analyze all loci, from the clustering step, modifying parameters\n"
 															   "1b -> Re-analyze only one locus of paired-end amplicon (merged reads), modifying parameters\n"
@@ -1772,11 +1772,11 @@ def main_menu2():
 	"""
 	os.system("cls" if winOS else "clear")
 	global rmenu
-	print(titleStyle + "\n----- MENU 2 - REMOVAL OF PRIMERS AND SELECTION OF MINIMUM SEQUENCE ABUNDANCES ACCORDING TO USER-DEFINED THRESHOLDS -----" + normalStyle + "\n\n"
+	print(titleStyle + "\n---- MENU 2 - REMOVAL OF PRIMERS, SELECTION OF MINIMUM SEQUENCE ABUNDANCES ACCORDING TO USER-DEFINED THRESHOLDS ----" + normalStyle + "\n\n"
 																"2a -> Apply the SAME size threshold for ALL SAMPLES for the loci based on PAIRED-END reads "
 																"(R1/R2 merged)\n"
-																"\ti.e. you want to keep only sequences whose abundance is greater than x% of the total number of sequences for a given sample.\n"
-																"\tThis threshold of x% can be chosen for each locus.\n\n"
+																"\ti.e. you want to keep only sequences whose abundance is greater than x% of the total number of"
+																"\n\tsequences for a given sample. This threshold of x% can be chosen for each locus.\n\n"
 																"2b -> Apply the SAME size threshold for ALL SAMPLES for the loci based on SINGLE-END reads "
 																"(R1 only)\n"
 																"\tsame as option 2a but only using the R1 reads instead of merged ones.\n\n"
@@ -1805,7 +1805,7 @@ def main_menu3():
 	prevent()
 	prev_param(None)
 	os.system("cls" if winOS else "clear")
-	print(titleStyle + "\n----- MENU 3 - GENERATION OF A UNIQUE SEQUENCE FILE FOR EACH LOCUS (comprising all samples' data) -----" + normalStyle +
+	print(titleStyle + "\n---- MENU 3 - GENERATION OF A UNIQUE SEQUENCE FILE FOR EACH LOCUS (comprising all samples' data) ----" + normalStyle +
 																"\n\n3a -> Process all loci at once\n"
 																"3b -> Process loci one by one\n")
 
@@ -1819,12 +1819,13 @@ def main_menu4():
 	"""
 	os.system("cls" if winOS else "clear")
 	global rmenu
-	print(titleStyle + "\n----- MENU 4 - CONVERSION OF ANALYSIS RESULTS INTO metaXplor IMPORT FORMAT -----" + normalStyle + "\n\n"
+	print(titleStyle + "\n---- MENU 4 - CONVERSION OF ANALYSIS RESULTS INTO metaXplor IMPORT FORMAT ----" + normalStyle + "\n\n"
 																  "4a -> Generate sequence files\n"
 																  "\tCompiles all sequences selected for all loci into a single fasta\n"
 																  "\tOutputs a .tsv file indicating samples weights for each sequence\n\n"
 																  "4b -> Generate assignment file\n"
-																  "\tConverts blastn results (obtained from blasting above-mentioned fasta file) from 'Hit table (text)' (format #7) into metaXplor format\n\n"
+																  "\tConverts blastn results (obtained from blasting above-mentioned fasta file) from 'Hit table (text)'"
+																  "\n\t(format #7) into metaXplor format\n\n"
 																  "4c -> Builds metaXplor-format sample metadata file from provided tabulated file\n\n"
 																  "4d -> Compresses all metaXplor files into a final, ready to import, zip archive\n" + normalStyle)
 
@@ -2523,7 +2524,7 @@ def main():
 
 	os.system("cls" if winOS else "clear")
 
-	sys.stdout.write(titleStyle + "-------------------- mbctools - MAIN MENU --------------------" + normalStyle + "\n")
+	sys.stdout.write(titleStyle + "\n------------------------------ mbctools - MAIN MENU ------------------------------" + normalStyle + "\n")
 	printHowToCite()
 	sys.stdout.write(titleStyle + "NAVIGATION CONVENTIONS:\n" + warningStyle + "Validating without typing anything applies the default value, if any\n" + normalStyle +
 					 "Entering '" + promptStyle + "back" + normalStyle + "' returns to the program upper level, if any\n"
