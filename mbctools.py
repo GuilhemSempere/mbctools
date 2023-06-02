@@ -1505,8 +1505,7 @@ def trim_2x():
 							  f" --fastq_stripright {trim_right} --fastaout tmp --minsize {b}"
 							  + localErrorOnStopCmd + "\n"
 							  f"vsearch --derep_fulllength ./tmp --output {sample}_pairedEnd_select.fas "
-							  # f"--sizein --sizeout"
-							  + localErrorOnStopCmd + "\n"
+							  f'--sizein --sizeout\n' + localErrorOnStopCmd + "\n"
 							  + end_log_redirect('./' + sample + '.log'))
 				subprocess.run([shellCmd, "./trim-select." + scriptExt])
 				selected = open(f'./{sample}_pairedEnd_select.fas', 'r')
@@ -1546,8 +1545,7 @@ def trim_2x():
 							  f" --fastq_stripright {trim_right} --fastaout tmp --minsize {b}"
 							  + localErrorOnStopCmd + "\n"
 							  f"vsearch --derep_fulllength ./tmp --output {sample}_singleEnd_select.fas "
-							  # f"--sizein --sizeout"
-							  + localErrorOnStopCmd + "\n"
+							  f'--sizein --sizeout\n' + localErrorOnStopCmd + "\n"
 							  + end_log_redirect('./' + sample + '.log'))
 				subprocess.run([shellCmd, "./trim-select." + scriptExt])
 				selected = open('./' + sample + '_singleEnd_select.fas', 'r')
@@ -1588,8 +1586,7 @@ def trim_2x():
 									  f' --fastq_stripright {trim_right} --fastaout tmp --minsize {b}\n'
 									  + localErrorOnStopCmd + "\n"
 									  f' vsearch --derep_fulllength ./tmp --output {sam2trim2c}_pairedEnd_select.fas '
-									  # f"--sizein --sizeout"
-									  + localErrorOnStopCmd + "\n"
+									  f'--sizein --sizeout\n' + localErrorOnStopCmd + "\n"
 									  + end_log_redirect('./' + sam2trim2c + '.log'))
 				subprocess.run([shellCmd, "./trim-select." + scriptExt])
 				selected = open("./" + sam2trim2c + "_pairedEnd_select.fas", "r")
@@ -1629,8 +1626,8 @@ def trim_2x():
 									  f' vsearch --fastx_filter {sam2trim2d}_singleEnd_orient.fas --fastq_stripleft {trim_left} '
 									  f' --fastq_stripright {trim_right} --fastaout tmp --minsize {b}\n'
 									  + localErrorOnStopCmd + "\n"
-									  f' vsearch --derep_fulllength ./tmp --output {sam2trim2d}_singleEnd_select.fas --sizein '
-									  f'--sizeout\n' + localErrorOnStopCmd + "\n"
+									  f' vsearch --derep_fulllength ./tmp --output {sam2trim2d}_singleEnd_select.fas '
+									  f'--sizein --sizeout\n' + localErrorOnStopCmd + "\n"
 									  + end_log_redirect('./' + sam2trim2d + '.log'))
 				subprocess.run([shellCmd, "./trim-select." + scriptExt])
 				selected = open("./" + sam2trim2d + "_singleEnd_select.fas", "r")
