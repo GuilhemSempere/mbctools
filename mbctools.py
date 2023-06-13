@@ -1474,7 +1474,7 @@ def trim_2x():
 			trim_left = in_trim_left()
 			trim_right = in_trim_right()
 			ts = in_ts()
-			stat_2a.write(f"Locus {loc2trim2a} trimmed {trim_left} bp (left) and {trim_right} bp (right) with threshold set at {ts1}\n")
+			stat_2a.write(f"Locus {loc2trim2a} trimmed {trim_left} bp (forward) and {trim_right} bp (reverse) with threshold set at {ts1}\n")
 			for sample in samples:
 				with open(f"{sample}_pairedEnd_orient.fas", 'r') as filin, open("trim-select." + scriptExt, "w") as out:
 					targets = [line for line in filin if "size" in line]
@@ -1514,7 +1514,7 @@ def trim_2x():
 			trim_left = in_trim_left()
 			trim_right = in_trim_right()
 			ts = in_ts()
-			stat_2b.write(f"Locus {loc2trim2b} trimmed {trim_left} bp (left) and {trim_right} bp (right) with threshold set at {ts1}\n")
+			stat_2b.write(f"Locus {loc2trim2b} trimmed {trim_left} bp (forward) and {trim_right} bp (reverse) with threshold set at {ts1}\n")
 			for sample in samples:
 				with open(sample + "_singleEnd_orient.fas", 'r') as filin, open("trim-select." + scriptExt, "w") as out:
 					targets = [line for line in filin if "size" in line]
@@ -1553,7 +1553,7 @@ def trim_2x():
 			os.chdir(f"{current_dir}{fileSep}loci{fileSep}{loc2trim2c}")
 			trim_left = in_trim_left()
 			trim_right = in_trim_right()
-			stat_2c.write(f"Locus {loc2trim2c} trimmed at {trim_left} bp (left) and {trim_right} bp (right)\n")
+			stat_2c.write(f"Locus {loc2trim2c} trimmed at {trim_left} bp (forward) and {trim_right} bp (reverse)\n")
 			while True:
 				sam2trim2c = in_trim_sample2c(loc2trim2c)
 				ts = in_ts()
@@ -1594,7 +1594,7 @@ def trim_2x():
 			os.chdir(f"{current_dir}{fileSep}loci{fileSep}{loc2trim2d}")
 			trim_left = in_trim_left()
 			trim_right = in_trim_right()
-			stat_2d.write(f"Locus {loc2trim2d} trimmed at {trim_left} bp (left) and {trim_right} bp (right)\n")
+			stat_2d.write(f"Locus {loc2trim2d} trimmed at {trim_left} bp (forward) and {trim_right} bp (reverse)\n")
 			while True:
 				sam2trim2d = in_trim_sample2d(loc2trim2d)
 				ts = in_ts()
