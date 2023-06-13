@@ -68,12 +68,6 @@ except ModuleNotFoundError:
 	subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'python-dateutil'])
 	import dateutil.parser
 
-try:
-	p = subprocess.run(["vsearch"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-except FileNotFoundError:
-	print("Please install vsearch, then try again...")
-	exit(1)
-
 winOS = "Windows" in platform.uname()
 shellCmd = "powershell" if winOS else "bash"
 scriptExt = "ps1" if winOS else "sh"
@@ -90,15 +84,6 @@ titleStyle = "\033[94m\033[1m"
 promptStyle = "\033[96m"
 successStyle = "\033[92m"
 citationStyle = "\033[1;33m\033[1m\033[3m"
-
-if winOS:
-	command = 'powershell.exe Get-ExecutionPolicy'
-	process = subprocess.Popen(command, stdout=subprocess.PIPE)
-	result = process.communicate()[0].strip()
-	execution_policy = result.decode()
-	if execution_policy != 'Unrestricted':
-		print(errorStyle + "\nPlease run the following command in Windows prompt to be able to use mbctools:\n" + normalStyle + "\nSet-ExecutionPolicy Unrestricted -Scope CurrentUser -Force\n")
-		exit(0)
 
 global lociPEs, lociSEs, lociPE, lociSE, dir_fastq, fastq_R1, fastqr1s, fastq_R2, fastqr2s, Samples, \
 	samples, alpha, identity, loc_sel1, loc_sel2, rmenu, sam_sel, minsize, minseqlength, loc2trim, trim_left, \
@@ -232,7 +217,7 @@ def folders():
 		if Path(path).is_dir():
 			alreadyExisting.append("loci/" + locus)
 		else:
-			os.chdir(f"{current_dir}/loci")
+			os.chdir(f"{current_dir}{fileSep}loci")
 			os.mkdir(path)
 
 	if len(alreadyExisting) > 0:
@@ -259,7 +244,7 @@ def in_fastq_R2():
 	"""Input of the file name containing the R2 fastq file names, option 1
 	"""
 	global fastq_R2, fastqr2s
-	fastq_R2 = promptUser("Enter the name of the file listing all R2 fastq file names", "fastqR2.txt", ["back", "home", "exit"], 3, main_menu1, "")
+	fastq_R2 = promptUser("Enter the name of the file listing all R2 fastq file names (file must exist but may be empty if no R2 to process)", "fastqR2.txt", ["back", "home", "exit"], 3, main_menu1, "")
 	with open(fastq_R2, "r") as out2:
 		fastqr2s = out2.read().splitlines()
 
@@ -268,7 +253,7 @@ def in_lociPE():
 	"""Input of the file name containing the list of paired-end based loci, option 1
 	"""
 	global lociPE, lociPEs
-	lociPE = promptUser("Enter the name of the file listing names of loci based on paired-end reads", "lociPE.txt", ["back", "home", "exit"], 3, main_menu1, "")
+	lociPE = promptUser("Enter the name of the file listing names of loci based on paired-end reads (file may be empty if no R2 to process)", "lociPE.txt", ["back", "home", "exit"], 3, main_menu1, "")
 	with open(lociPE, "r") as out:
 		lociPEs = out.read().splitlines()
 	for locusName in lociPEs:
@@ -391,40 +376,40 @@ def in_trim_sample2d(locus):
 
 
 def in_trim_left():
-	"""Input of the number of bp corresponding to the left primer to remove from the clusters,
+	"""Input of the number of bp corresponding to the forward primer to remove from the clusters,
 	options 2a, 2b, 2c and 2d
 	"""
 	global trim_left #, loc2trim2a, loc2trim2b, loc2trim2c
 	if rmenu == "2a":
-		trim_left = promptUser(f"Enter the number of bp of the left primer for {loc2trim2a} (e.g. 20)", None, ["back", "home", "exit"], 2, main_menu2, "")
+		trim_left = promptUser(f"Enter the number of bp of the forward primer for {loc2trim2a} (e.g. 20)", None, ["back", "home", "exit"], 2, main_menu2, "")
 
 	if rmenu == "2b":
-		trim_left = promptUser(f"Enter the number of bp of the left primer for {loc2trim2b} (e.g. 20)", None, ["back", "home", "exit"], 2, main_menu2, "")
+		trim_left = promptUser(f"Enter the number of bp of the forward primer for {loc2trim2b} (e.g. 20)", None, ["back", "home", "exit"], 2, main_menu2, "")
 
 	if rmenu == "2c":
-		trim_left = promptUser(f"Enter the number of bp of the left primer for {loc2trim2c} (e.g. 20)", None, ["back", "home", "exit"], 2, main_menu2, "")
+		trim_left = promptUser(f"Enter the number of bp of the forward primer for {loc2trim2c} (e.g. 20)", None, ["back", "home", "exit"], 2, main_menu2, "")
 
 	if rmenu == "2d":
-		trim_left = promptUser(f"Enter the number of bp of the left primer for {loc2trim2d} (e.g. 20)", None, ["back", "home", "exit"], 2, main_menu2, "")
+		trim_left = promptUser(f"Enter the number of bp of the forward primer for {loc2trim2d} (e.g. 20)", None, ["back", "home", "exit"], 2, main_menu2, "")
 	return trim_left
 
 
 def in_trim_right():
-	"""Input of the number of bp corresponding to the right primer to remove from the clusters,
+	"""Input of the number of bp corresponding to the reverse primer to remove from the clusters,
 	options 2a, 2b, 2c and 2d
 	"""
 	global trim_right #, loc2trim2a, loc2trim2b, loc2trim2c, loc2trim2d
 	if rmenu == "2a":
-		trim_right = promptUser(f"Enter the number of bp of the right primer for {loc2trim2a} (e.g. 22)", None, ["back", "home", "exit"], 2, main_menu2, "")
+		trim_right = promptUser(f"Enter the number of bp of the reverse primer for {loc2trim2a} (e.g. 22)", None, ["back", "home", "exit"], 2, main_menu2, "")
 
 	if rmenu == "2b":
-		trim_right = promptUser(warningStyle + "You should safely be able to use 0 here as real single-end data has no reverse primer, and reverse reads will be filtered-out from unmerged R1 data\n" + promptStyle + f"Enter the number of bp of the right primer for {loc2trim2b} (e.g. 0)", None, ["back", "home", "exit"], 2, main_menu2, "")
+		trim_right = promptUser(warningStyle + "You should safely be able to use 0 here as real single-end data has no reverse primer, and reverse reads will be filtered-out from unmerged R1 data\n" + promptStyle + f"Enter the number of bp of the reverse primer for {loc2trim2b} (e.g. 0)", None, ["back", "home", "exit"], 2, main_menu2, "")
 
 	if rmenu == "2c":
-		trim_right = promptUser(f"Enter the number of bp of the right primer for {loc2trim2c} (e.g. 22)", None, ["back", "home", "exit"], 2, main_menu2, "")
+		trim_right = promptUser(f"Enter the number of bp of the reverse primer for {loc2trim2c} (e.g. 22)", None, ["back", "home", "exit"], 2, main_menu2, "")
 
 	if rmenu == "2d":
-		trim_right = promptUser(warningStyle + "You should safely be able to use 0 here as real single-end data has no reverse primer, and reverse reads will be filtered-out from unmerged R1 data\n" + promptStyle + f"Enter the number of bp of the right primer for {loc2trim2d} (e.g. 0)", None, ["back", "home", "exit"], 2, main_menu2, "")
+		trim_right = promptUser(warningStyle + "You should safely be able to use 0 here as real single-end data has no reverse primer, and reverse reads will be filtered-out from unmerged R1 data\n" + promptStyle + f"Enter the number of bp of the reverse primer for {loc2trim2d} (e.g. 0)", None, ["back", "home", "exit"], 2, main_menu2, "")
 	return trim_right
 
 
@@ -531,7 +516,7 @@ def prev_param(paramConfigFile):
 	except KeyError:
 		print(errorStyle + "\nMissing parameter in configuration file " + fileToParse + " - " + normalStyle)
 		traceback.print_exc(limit=0)
-		exit(1)
+		customExit(1)
 
 
 def quality():
@@ -554,7 +539,7 @@ def quality():
 			fastqr1 = fastqr1s[i]
 			i = i + 1
 			out1.write(main_stream_message(f' {sample}...'))
-			out1.write(f"vsearch --fastq_eestats2 {dir_fastq}{fileSep}{fastqr1} --output "
+			out1.write(f"vsearch --fastq_qmax 93 --fastq_eestats2 \"{dir_fastq}{fileSep}{fastqr1}\" --output "
 					   f"../outputs/{sample}_R1_quality.txt" + localErrorOnStopCmd + "\n")
 		out1.write(main_stream_message(f'\n\n'))
 
@@ -568,7 +553,7 @@ def quality():
 				fastqr2 = fastqr2s[i]
 				i = i + 1
 				out2.write(main_stream_message(f' {sample}...'))
-				out2.write(f"vsearch --fastq_eestats2 {dir_fastq}{fileSep}{fastqr2} --output "
+				out2.write(f"vsearch --fastq_qmax 93 --fastq_eestats2 \"{dir_fastq}{fileSep}{fastqr2}\" --output "
 						   f"../outputs/{sample}_R2_quality.txt" + localErrorOnStopCmd + "\n")
 			out2.write(main_stream_message(f'\n\n'))
 
@@ -594,7 +579,7 @@ def merging():
 			fastqr2 = fastqr2s[i]
 			out.write(main_stream_message(
 				f" {sample}...") +
-					  f"vsearch --fastq_mergepairs {dir_fastq}{fileSep}{fastqr1} --reverse {dir_fastq}{fileSep}{fastqr2} "
+					  f"vsearch --fastq_mergepairs \"{dir_fastq}{fileSep}{fastqr1}\" --reverse \"{dir_fastq}{fileSep}{fastqr2}\" "
 					  f"--fastaout ../tmp_files/{sample}_pairedEnd.fa --fastq_allowmergestagger --relabel "
 					  f"sample={sample}_merged." + localErrorOnStopCmd + "\n")
 			i = i + 1
@@ -618,7 +603,7 @@ def fastq2fas():
 			sample = samples[i]
 			fastqr1 = fastqr1s[i]
 			out.write(main_stream_message(f' {sample}...') +
-					  f"vsearch --fastq_filter {dir_fastq}{fileSep}{fastqr1} --fastaout ../tmp_files/{sample}_singleEnd.fa --relabel sample={sample}_R1." + localErrorOnStopCmd + "\n")
+					  f"vsearch --fastq_qmax 93 --fastq_filter \"{dir_fastq}{fileSep}{fastqr1}\" --fastaout ../tmp_files/{sample}_singleEnd.fa --relabel sample={sample}_R1." + localErrorOnStopCmd + "\n")
 			i = i + 1
 		out.write(main_stream_message(f'\n\n'))
 
@@ -1061,8 +1046,8 @@ def runs_1x():
 				os.chmod(file, 0o755)
 		p = subprocess.run([shellCmd, "./runall1." + scriptExt])
 		if p.returncode > 0:
-			print(f"\nMain analysis execution failed with error code {p.returncode}, please check {current_dir}" + fileSep + "outputs" + fileSep + "res1.log")
-			exit(1)
+			print(errorStyle + f"\nMain analysis execution failed with error code {p.returncode}" + normalStyle + f", please check {current_dir}" + fileSep + "outputs" + fileSep + "res1.log")
+			customExit(1)
 		os.chdir('..')
 		removeSingleEndReorientedSequences(lociSEs, samples, rmenu)
 		print(successStyle + f"Step {rmenu} ended successfully" + normalStyle)
@@ -1110,8 +1095,8 @@ def runs_1x():
 				os.chmod(file, 0o755)
 		p = subprocess.run([shellCmd, "./runall1a." + scriptExt])
 		if p.returncode > 0:
-			print(f"\nMain analysis execution failed with error code {p.returncode}, please check {current_dir}" + fileSep + "outputs" + fileSep + "res1a.log")
-			exit(1)
+			print(errorStyle + f"\nMain analysis execution failed with error code {p.returncode}" + normalStyle + f", please check {current_dir}" + fileSep + "outputs" + fileSep + "res1a.log")
+			customExit(1)
 		os.chdir('..')
 		removeSingleEndReorientedSequences(lociSEs, samples, rmenu)
 		print(successStyle + f"Step {rmenu} ended successfully" + normalStyle)
@@ -1151,8 +1136,8 @@ def runs_1x():
 				os.chmod(file, 0o755)
 		p = subprocess.run([shellCmd, "./runall1b." + scriptExt])
 		if p.returncode > 0:
-			print(f"\nMain analysis execution failed with error code {p.returncode}, please check {current_dir}" + fileSep + "outputs" + fileSep + "res1b.log")
-			exit(1)
+			print(errorStyle + f"\nMain analysis execution failed with error code {p.returncode}" + normalStyle + f", please check {current_dir}" + fileSep + "outputs" + fileSep + "res1b.log")
+			customExit(1)
 		print(successStyle + f"Step {rmenu} ended successfully" + normalStyle)
 
 	if rmenu == "1c":
@@ -1190,8 +1175,8 @@ def runs_1x():
 				os.chmod(file, 0o755)
 		p = subprocess.run([shellCmd, "./runall1c." + scriptExt])
 		if p.returncode > 0:
-			print(f"\nMain analysis execution failed with error code {p.returncode}, please check {current_dir}" + fileSep + "outputs" + fileSep + "res1c.log")
-			exit(1)
+			print(errorStyle + f"\nMain analysis execution failed with error code {p.returncode}" + normalStyle + f", please check {current_dir}" + fileSep + "outputs" + fileSep + "res1c.log")
+			customExit(1)
 		os.chdir('..')
 		removeSingleEndReorientedSequences(lociSEs, samples, rmenu)
 		print(successStyle + f"Step {rmenu} ended successfully" + normalStyle)
@@ -1233,8 +1218,8 @@ def runs_1x():
 				os.chmod(file, 0o755)
 		p = subprocess.run([shellCmd, "./runall1d." + scriptExt])
 		if p.returncode > 0:
-			print(f"\nMain analysis execution failed with error code {p.returncode}, please check {current_dir}" + fileSep + "outputs" + fileSep + "res1d.log")
-			exit(1)
+			print(errorStyle + f"\nMain analysis execution failed with error code {p.returncode}" + normalStyle + f", please check {current_dir}" + fileSep + "outputs" + fileSep + "res1d.log")
+			customExit(1)
 		os.chdir('..')
 		removeSingleEndReorientedSequences(lociSEs, [sam_sel], rmenu)
 		print(successStyle + f"Step {rmenu} ended successfully" + normalStyle)
@@ -1270,10 +1255,10 @@ def runs_1x():
 		p = subprocess.run([shellCmd, "./runall1e." + scriptExt])
 		if p.returncode > 0:
 			print(str(p))
-			print(errorStyle + f"\nMain analysis execution failed with error code {p.returncode}, please check {current_dir}" + fileSep + "outputs" + fileSep + "res1e.log" + normalStyle)
-			exit(1)
+			print(errorStyle + errorStyle + f"\nMain analysis execution failed with error code {p.returncode}" + normalStyle + f", please check {current_dir}" + fileSep + "outputs" + fileSep + "res1e.log" + normalStyle)
+			customExit(1)
 		print(successStyle + f"Step {rmenu} ended successfully" + normalStyle)
-		sys.stdout.write(successStyle + "\nExecution of option 1e is complete\n" + normalStyle + f"Statistical test files (*_quality.txt) are located at ---> {current_dir}/outputs\n\n")
+		sys.stdout.write(successStyle + "\nExecution of option 1e is complete\n" + normalStyle + f"Statistical test files (*_quality.txt) are located at ---> {current_dir}{fileSep}outputs\n\n")
 		os.chdir(current_dir)
 
 
@@ -1565,7 +1550,7 @@ def trim_2x():
 		stat_2c = open(f"{current_dir}{fileSep}outputs{fileSep}Stats_option_2c.txt", "a")
 		while True:
 			loc2trim2c = in_loc2trim_2x()
-			os.chdir(f"{current_dir}/loci/{loc2trim2c}")
+			os.chdir(f"{current_dir}{fileSep}loci{fileSep}{loc2trim2c}")
 			trim_left = in_trim_left()
 			trim_right = in_trim_right()
 			stat_2c.write(f"Locus {loc2trim2c} trimmed at {trim_left} bp (left) and {trim_right} bp (right)\n")
@@ -1606,7 +1591,7 @@ def trim_2x():
 		stat_2d = open(f"{current_dir}{fileSep}outputs{fileSep}Stats_option_2d.txt", "a")
 		while True:
 			loc2trim2d = in_loc2trim_2x()
-			os.chdir(f"{current_dir}/loci/{loc2trim2d}")
+			os.chdir(f"{current_dir}{fileSep}loci{fileSep}{loc2trim2d}")
 			trim_left = in_trim_left()
 			trim_right = in_trim_right()
 			stat_2d.write(f"Locus {loc2trim2d} trimmed at {trim_left} bp (left) and {trim_right} bp (right)\n")
@@ -1660,7 +1645,7 @@ def concat_3(loci):
 		loc2cat = promptUser("For which LOCUS do you want to generate a unique sequence file?", None, all_loci + ["back", "home", "exit"], 1, main, f"Results of concatenation session --> {current_dir}{fileSep}outputs{fileSep}Stats_option_3.txt") if loci is None else loci[locusIndex]
 
 		stat_3 = open(f'{current_dir}{fileSep}outputs{fileSep}Stats_option_3.txt', 'a')
-		os.chdir(f"{current_dir}/loci/{loc2cat}")
+		os.chdir(f"{current_dir}{fileSep}loci{fileSep}{loc2cat}")
 		files2cat = glob.glob('*_select.fas')
 		if len(files2cat) == 0:
 			print(errorStyle + f"\nSequences for locus {loc2cat} have not been filtered using an abundance threshold." + warningStyle + " Please run step 2 on all loci for which you want to run step 3" + normalStyle)
@@ -1679,15 +1664,15 @@ def concat_3(loci):
 			stat_3.writelines(f"Locus {loc2cat} has {nb_tot} sequences in total\n")
 			sys.stdout.write(successStyle + f"\nLocus {loc2cat}: {nb_tot} sequences from {nb_samples} samples were added to a unique fasta file\n" + normalStyle)
 			if nb_tot > 0:
-				sys.stdout.write(f"Results in --> {current_dir}/loci/{loc2cat}/{loc2cat}_allseq_select.fasta\n")
+				sys.stdout.write(f"Results in --> {current_dir}{fileSep}loci{fileSep}{loc2cat}/{loc2cat}_allseq_select.fasta\n")
 
 			if loci is not None:
 				locusIndex = locusIndex + 1
 			elif nb_tot > 0 and "yes" == promptUser("Do you want to generate dereplicated versions of the above mentioned fasta file? " + normalStyle + "Enter yes or no" + promptStyle, None, ["yes", "no"], 1, None, ""):
 				print()
 				logFile = open(f'{current_dir}{fileSep}outputs{fileSep}res3.log', 'w')
-				outFasta = f"{current_dir}/loci/{loc2cat}/{loc2cat}" + '_allseq_select_derep.fasta'
-				outTsv = f"{current_dir}/loci/{loc2cat}/{loc2cat}" + '_allseq_select_derep.tsv'
+				outFasta = f"{current_dir}{fileSep}loci{fileSep}{loc2cat}/{loc2cat}" + '_allseq_select_derep.fasta'
+				outTsv = f"{current_dir}{fileSep}loci{fileSep}{loc2cat}/{loc2cat}" + '_allseq_select_derep.tsv'
 				derepResults = derepSeveralFastaFiles({loc2cat : loc2cat + '_allseq_select.fasta'}, loc2cat + '_allseq_select_derep.fasta', loc2cat + '_allseq_select_derep.tsv', logFile)
 				print(successStyle + str(derepResults[0]) + " distinct sequences were dereplicated into fasta and tsv files: " + normalStyle + outFasta + ", " + outTsv + "\n")
 				logFile.close()
@@ -1698,9 +1683,9 @@ def concat_3(loci):
 		logFile = open(f'{current_dir}{fileSep}outputs{fileSep}res3.log', 'w')
 		for locus in loci:
 			if locus not in skippedLoci:
-				outFasta = f"{current_dir}/loci/{locus}/{locus}" + '_allseq_select_derep.fasta'
-				outTsv = f"{current_dir}/loci/{locus}/{locus}" + '_allseq_select_derep.tsv'
-				derepResults = derepSeveralFastaFiles({locus : f"{current_dir}/loci/{locus}/{locus}" + '_allseq_select.fasta'}, outFasta, outTsv, logFile)
+				outFasta = f"{current_dir}{fileSep}loci{fileSep}{locus}/{locus}" + '_allseq_select_derep.fasta'
+				outTsv = f"{current_dir}{fileSep}loci{fileSep}{locus}/{locus}" + '_allseq_select_derep.tsv'
+				derepResults = derepSeveralFastaFiles({locus : f"{current_dir}{fileSep}loci{fileSep}{locus}/{locus}" + '_allseq_select.fasta'}, outFasta, outTsv, logFile)
 				if derepResults[0] > 0:
 					print(successStyle + str(derepResults[0]) + " distinct sequences were dereplicated into fasta and tsv files: " + normalStyle + outFasta + ", " + outTsv + normalStyle + "\n")
 				else:
@@ -1726,13 +1711,13 @@ def prevent():
 def quit_mbctools():
 	print(successStyle + "\n\nThanks for using mbctools!" + normalStyle)
 	printHowToCite()
-	quit()
+	customExit(0)
 
 
 def printHowToCite():
 	print("\nPlease cite this software as follows:" +
-		  citationStyle + "\nmbctools: An open source tool to facilitate DNA sequence data analysis using VSEARCH in metabarcoding studies"
-						  "\nChristian Barnabé, Guilhem Sempéré and Etienne Waleckx. https://github.com/GuilhemSempere/mbctools" + normalStyle + "\n\n")
+		  citationStyle + "\nmbctools: A User-Friendly Metabarcoding and Cross-Platform Pipeline for Analyzing Amplicon Sequencing Data across a Large Diversity of Organisms"
+						  "\nChristian Barnabé, Guilhem Sempéré, Vincent Manzanilla and Etienne Waleckx. https://github.com/GuilhemSempere/mbctools" + normalStyle + "\n\n")
 
 
 def main_menu1():
@@ -2506,6 +2491,21 @@ def rerun(nextMenu):
 
 
 def main():
+	if winOS:
+		command = 'powershell.exe Get-ExecutionPolicy'
+		process = subprocess.Popen(command, stdout=subprocess.PIPE)
+		result = process.communicate()[0].strip()
+		execution_policy = result.decode()
+		if execution_policy != 'Unrestricted':
+			print(errorStyle + "\nPlease run the following command in Windows prompt to be able to use mbctools:\n" + normalStyle + "\nSet-ExecutionPolicy Unrestricted -Scope CurrentUser -Force\n")
+			customExit(1)
+
+	try:
+		p = subprocess.run(["vsearch"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+	except FileNotFoundError:
+		print(errorStyle + "Please install vsearch" + normalStyle + ", then try again...")
+		customExit(1)
+
 	"""Displays the main menu
 	"""
 	if len(sys.argv) > 1:
@@ -2514,10 +2514,10 @@ def main():
 			global rmenu
 			rmenu = "1"
 			menu1()
-			exit(0)
+			customExit(0)
 		else:
 			print(errorStyle + "\nUnexisting configuration file: " + sys.argv[1] + "\n" + normalStyle)
-			exit(1)
+			customExit(1)
 
 	os.system("cls" if winOS else "clear")
 
@@ -2544,6 +2544,11 @@ def main():
 		main_menu3()
 	elif menu == '4':
 		main_menu4()
+
+
+def customExit(code):
+	input("\n(Press ENTER to exit)")
+	exit(code)
 
 
 if __name__ == "__main__":
