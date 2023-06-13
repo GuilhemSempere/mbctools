@@ -1664,15 +1664,15 @@ def concat_3(loci):
 			stat_3.writelines(f"Locus {loc2cat} has {nb_tot} sequences in total\n")
 			sys.stdout.write(successStyle + f"\nLocus {loc2cat}: {nb_tot} sequences from {nb_samples} samples were added to a unique fasta file\n" + normalStyle)
 			if nb_tot > 0:
-				sys.stdout.write(f"Results in --> {current_dir}{fileSep}loci{fileSep}{loc2cat}/{loc2cat}_allseq_select.fasta\n")
+				sys.stdout.write(f"Results in --> {current_dir}{fileSep}loci{fileSep}{loc2cat}{fileSep}{loc2cat}_allseq_select.fasta\n")
 
 			if loci is not None:
 				locusIndex = locusIndex + 1
 			elif nb_tot > 0 and "yes" == promptUser("Do you want to generate dereplicated versions of the above mentioned fasta file? " + normalStyle + "Enter yes or no" + promptStyle, None, ["yes", "no"], 1, None, ""):
 				print()
 				logFile = open(f'{current_dir}{fileSep}outputs{fileSep}res3.log', 'w')
-				outFasta = f"{current_dir}{fileSep}loci{fileSep}{loc2cat}/{loc2cat}" + '_allseq_select_derep.fasta'
-				outTsv = f"{current_dir}{fileSep}loci{fileSep}{loc2cat}/{loc2cat}" + '_allseq_select_derep.tsv'
+				outFasta = f"{current_dir}{fileSep}loci{fileSep}{loc2cat}{fileSep}{loc2cat}" + '_allseq_select_derep.fasta'
+				outTsv = f"{current_dir}{fileSep}loci{fileSep}{loc2cat}{fileSep}{loc2cat}" + '_allseq_select_derep.tsv'
 				derepResults = derepSeveralFastaFiles({loc2cat : loc2cat + '_allseq_select.fasta'}, loc2cat + '_allseq_select_derep.fasta', loc2cat + '_allseq_select_derep.tsv', logFile)
 				print(successStyle + str(derepResults[0]) + " distinct sequences were dereplicated into fasta and tsv files: " + normalStyle + outFasta + ", " + outTsv + "\n")
 				logFile.close()
@@ -1683,9 +1683,9 @@ def concat_3(loci):
 		logFile = open(f'{current_dir}{fileSep}outputs{fileSep}res3.log', 'w')
 		for locus in loci:
 			if locus not in skippedLoci:
-				outFasta = f"{current_dir}{fileSep}loci{fileSep}{locus}/{locus}" + '_allseq_select_derep.fasta'
-				outTsv = f"{current_dir}{fileSep}loci{fileSep}{locus}/{locus}" + '_allseq_select_derep.tsv'
-				derepResults = derepSeveralFastaFiles({locus : f"{current_dir}{fileSep}loci{fileSep}{locus}/{locus}" + '_allseq_select.fasta'}, outFasta, outTsv, logFile)
+				outFasta = f"{current_dir}{fileSep}loci{fileSep}{locus}{fileSep}{locus}" + '_allseq_select_derep.fasta'
+				outTsv = f"{current_dir}{fileSep}loci{fileSep}{locus}{fileSep}{locus}" + '_allseq_select_derep.tsv'
+				derepResults = derepSeveralFastaFiles({locus : f"{current_dir}{fileSep}loci{fileSep}{locus}{fileSep}{locus}" + '_allseq_select.fasta'}, outFasta, outTsv, logFile)
 				if derepResults[0] > 0:
 					print(successStyle + str(derepResults[0]) + " distinct sequences were dereplicated into fasta and tsv files: " + normalStyle + outFasta + ", " + outTsv + normalStyle + "\n")
 				else:
