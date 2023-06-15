@@ -979,17 +979,23 @@ def removeSingleEndReorientedSequences(loci, samples, rmenu):
 		for sample in samples:
 			seqsToKeep = []
 			with open(f"./loci/{locus}/{sample}_singleEnd_orient.tsv", "r") as orientInfo:
+				nTotalSeqCountBeforeReorientation = 0
 				for line in orientInfo.read().split("\n"):
 					splitLine = line.split("\t")
-					if len(splitLine) == 4 and splitLine[1] == '+':
-						seqsToKeep.append(splitLine[0])
-			print(warningStyle + f"Locus {locus} / sample {sample}: keeping only R1/single-end sequences that were initially aligned like the reference (" + str(len(seqsToKeep)) + ")\n" + normalStyle)
-			with open(f"./loci/{locus}/{sample}_singleEnd_orient.tsv", "w") as orientInfo:
-				for seq in seqsToKeep:
-					orientInfo.write(seq + "\n")
-			logFile = open(f'{current_dir}{fileSep}outputs{fileSep}res' + rmenu + '.log', 'w')
-			subprocess.run(["vsearch", "--fastx_getseqs", f"./loci/{locus}/{sample}_singleEnd_orient.fas", "--labels", f"./loci/{locus}/{sample}_singleEnd_orient.tsv", "--fastaout", f"./loci/{locus}/{sample}_singleEnd_orient.fas"], stderr=logFile)
-			logFile.close()
+					if len(splitLine) == 4:
+						nTotalSeqCountBeforeReorientation = nTotalSeqCountBeforeReorientation + 1
+						if splitLine[1] == '+':
+							seqsToKeep.append(splitLine[0])
+			if nTotalSeqCountBeforeReorientation > 0:
+				print(warningStyle + f"Locus {locus} / sample {sample}: keeping only R1/single-end sequences that were initially aligned like the reference (" + str(len(seqsToKeep)) + " out of " + str(nTotalSeqCountBeforeReorientation) + ")\n" + normalStyle)
+				with open(f"./loci/{locus}/{sample}_singleEnd_orient.tsv", "w") as orientInfo:
+					for seq in seqsToKeep:
+						orientInfo.write(seq + "\n")
+				logFile = open(f'{current_dir}{fileSep}outputs{fileSep}res' + rmenu + '.log', 'a')
+				subprocess.run(["vsearch", "--fastx_getseqs", f"./loci/{locus}/{sample}_singleEnd_orient.fas", "--labels", f"./loci/{locus}/{sample}_singleEnd_orient.tsv", "--fastaout", f"./loci/{locus}/{sample}_singleEnd_orient.fas"], stderr=logFile)
+				logFile.close()
+			else:
+				print(warningStyle + f"Locus {locus} / sample {sample}: no clusters found for applied parameters\n" + normalStyle)
 
 
 def runs_1x():
