@@ -61,6 +61,7 @@ import traceback
 import io
 import zipfile
 import shutil
+import math
 
 try:
         import dateutil.parser
@@ -387,9 +388,9 @@ def in_trim_left(orientFileSuffix):
                 if orientFileSuffix == "_plus":
                         trim_left = promptUser(f"Enter the number of bp of the forward primer for {loc2trim2b} (e.g. 20)", None, ["back", "home", "exit"], 2, main_menu2, "")
                 elif orientFileSuffix == "_minus":
-                        trim_left = promptUser(warningStyle + "You chose to keep antisense (-) sequences and therefore should safely be able to use 0 here\n" + promptStyle + f"Enter the number of bp of the forward primer for {loc2trim2b} (e.g. 0)", None, ["back", "home", "exit"], 2, main_menu2, "")
+                        trim_left = promptUser(warningStyle + "You chose to keep antisense (-) clusters and therefore should safely be able to use 0 here\n" + promptStyle + f"Enter the number of bp of the forward primer for {loc2trim2b} (e.g. 0)", None, ["back", "home", "exit"], 2, main_menu2, "")
                 else:
-                        trim_left = promptUser(warningStyle + "Inspite of given advice, you chose to keep both sense (+) and antisense (-) sequences. Now you decide whether or no to trim forward primers ;-)\n" + promptStyle + f"Enter the number of bp of the forward primer for {loc2trim2b}", None, ["back", "home", "exit"], 2, main_menu2, "")
+                        trim_left = promptUser(warningStyle + "Inspite of given advice, you chose to keep both sense (+) and antisense (-) clusters. Now you decide whether or no to trim forward primers ;-)\n" + promptStyle + f"Enter the number of bp of the forward primer for {loc2trim2b}", None, ["back", "home", "exit"], 2, main_menu2, "")
 
         if rmenu == "2c":
                 trim_left = promptUser(f"Enter the number of bp of the forward primer for {loc2trim2c} (e.g. 20)", None, ["back", "home", "exit"], 2, main_menu2, "")
@@ -398,9 +399,9 @@ def in_trim_left(orientFileSuffix):
                 if orientFileSuffix == "_plus":
                         trim_left = promptUser(f"Enter the number of bp of the forward primer for {loc2trim2d} (e.g. 20)", None, ["back", "home", "exit"], 2, main_menu2, "")
                 elif orientFileSuffix == "_minus":
-                        trim_left = promptUser(warningStyle + "You chose to keep antisense (-) sequences and therefore should safely be able to use 0 here\n" + promptStyle + f"Enter the number of bp of the forward primer for {loc2trim2d} (e.g. 0)", None, ["back", "home", "exit"], 2, main_menu2, "")
+                        trim_left = promptUser(warningStyle + "You chose to keep antisense (-) clusters and therefore should safely be able to use 0 here\n" + promptStyle + f"Enter the number of bp of the forward primer for {loc2trim2d} (e.g. 0)", None, ["back", "home", "exit"], 2, main_menu2, "")
                 else:
-                        trim_left = promptUser(warningStyle + "Inspite of given advice, you chose to keep both sense (+) and antisense (-) sequences. Now you decide whether or no to trim forward primers ;-)\n" + promptStyle + f"Enter the number of bp of the forward primer for {loc2trim2d}", None, ["back", "home", "exit"], 2, main_menu2, "")
+                        trim_left = promptUser(warningStyle + "Inspite of given advice, you chose to keep both sense (+) and antisense (-) clusters. Now you decide whether or no to trim forward primers ;-)\n" + promptStyle + f"Enter the number of bp of the forward primer for {loc2trim2d}", None, ["back", "home", "exit"], 2, main_menu2, "")
         return trim_left
 
 
@@ -418,7 +419,7 @@ def in_trim_right(orientFileSuffix):
                 elif orientFileSuffix == "_plus":
                         trim_right = promptUser(warningStyle + "You chose to keep sense (+) sequences and therefore should safely be able to use 0 here\n" + promptStyle + f"Enter the number of bp of the reverse primer for {loc2trim2b} (e.g. 0)", None, ["back", "home", "exit"], 2, main_menu2, "")
                 else:
-                        trim_right = promptUser(warningStyle + "Inspite of given advice, you chose to keep both sense (+) and antisense (-) sequences. Now you decide whether or no to trim reverse primers ;-)\n" + promptStyle + f"Enter the number of bp of the reverse primer for {loc2trim2b}", None, ["back", "home", "exit"], 2, main_menu2, "")
+                        trim_right = promptUser(warningStyle + "Inspite of given advice, you chose to keep both sense (+) and antisense (-) clusters. Now you decide whether or no to trim reverse primers ;-)\n" + promptStyle + f"Enter the number of bp of the reverse primer for {loc2trim2b}", None, ["back", "home", "exit"], 2, main_menu2, "")
 
         if rmenu == "2c":
                 trim_right = promptUser(f"Enter the number of bp of the reverse primer for {loc2trim2c} (e.g. 22)", None, ["back", "home", "exit"], 2, main_menu2, "")
@@ -429,7 +430,7 @@ def in_trim_right(orientFileSuffix):
                 elif orientFileSuffix == "_plus":
                         trim_right = promptUser(warningStyle + "You chose to keep sense (+) sequences and therefore should safely be able to use 0 here\n" + promptStyle + f"Enter the number of bp of the reverse primer for {loc2trim2d} (e.g. 0)", None, ["back", "home", "exit"], 2, main_menu2, "")
                 else:
-                        trim_right = promptUser(warningStyle + "Inspite of given advice, you chose to keep both sense (+) and antisense (-) sequences. Now you decide whether or no to trim reverse primers ;-)\n" + promptStyle + f"Enter the number of bp of the reverse primer for {loc2trim2d}", None, ["back", "home", "exit"], 2, main_menu2, "")
+                        trim_right = promptUser(warningStyle + "Inspite of given advice, you chose to keep both sense (+) and antisense (-) clusters. Now you decide whether or no to trim reverse primers ;-)\n" + promptStyle + f"Enter the number of bp of the reverse primer for {loc2trim2d}", None, ["back", "home", "exit"], 2, main_menu2, "")
         return trim_right
 
 
@@ -438,16 +439,16 @@ def in_ts():
         """
         global ts, ts1, loc2trim2a, loc2trim2b, loc2trim2c, loc2trim2d
         if rmenu == "2a":
-                ts = promptUser(f"Enter the THRESHOLD (integer between 0 and 100) you want to use for this locus {loc2trim2a}.\nExample: " + normalStyle + f"if you want to keep only the clusters whose abundance is greater than 5% of the sum of sizes for a given sample with {loc2trim2a}, enter 5" + promptStyle, None, ["back", "home", "exit"], 2, main_menu2, "")
+                ts = promptUser(f"Enter the THRESHOLD (integer between 0 and 100) you want to use for this locus {loc2trim2a}.\nExample: " + normalStyle + f"if you want to keep only the clusters whose abundance is greater than 5% of the Sum of cluster sizes for a given sample with {loc2trim2a}, enter 5" + promptStyle, None, ["back", "home", "exit"], 2, main_menu2, "")
 
         if rmenu == "2b":
-                ts = promptUser(f"Enter the THRESHOLD (integer between 0 and 100) you want to use for this locus {loc2trim2b}.\nExample: " + normalStyle + f"if you want to keep only the clusters whose abundance is greater than 5% of the sum of sizes for a given sample with {loc2trim2b}, enter 5" + promptStyle, None, ["back", "home", "exit"], 2, main_menu2, "")
+                ts = promptUser(f"Enter the THRESHOLD (integer between 0 and 100) you want to use for this locus {loc2trim2b}.\nExample: " + normalStyle + f"if you want to keep only the clusters whose abundance is greater than 5% of the Sum of cluster sizes for a given sample with {loc2trim2b}, enter 5" + promptStyle, None, ["back", "home", "exit"], 2, main_menu2, "")
 
         if rmenu == "2c":
-                ts = promptUser(f"Enter the THRESHOLD (integer between 0 and 100) you want to use for this locus {loc2trim2c}.\nExample: " + normalStyle + f"if you want to keep only the clusters whose abundance is greater than 5% of the sum of sizes for a given sample with {loc2trim2c}, enter 5" + promptStyle, None, ["back", "home", "exit"], 2, main_menu2, "")
+                ts = promptUser(f"Enter the THRESHOLD (integer between 0 and 100) you want to use for this locus {loc2trim2c}.\nExample: " + normalStyle + f"if you want to keep only the clusters whose abundance is greater than 5% of the Sum of cluster sizes for a given sample with {loc2trim2c}, enter 5" + promptStyle, None, ["back", "home", "exit"], 2, main_menu2, "")
 
         if rmenu == "2d":
-                ts = promptUser(f"Enter the THRESHOLD (integer between 0 and 100) you want to use for this locus {loc2trim2d}.\nExample: " + normalStyle + f"if you want to keep only the clusters whose abundance is greater than 5% of the sum of sizes for a given sample with {loc2trim2d}, enter 5" + promptStyle, None, ["back", "home", "exit"], 2, main_menu2, "")
+                ts = promptUser(f"Enter the THRESHOLD (integer between 0 and 100) you want to use for this locus {loc2trim2d}.\nExample: " + normalStyle + f"if you want to keep only the clusters whose abundance is greater than 5% of the Sum of cluster sizes for a given sample with {loc2trim2d}, enter 5" + promptStyle, None, ["back", "home", "exit"], 2, main_menu2, "")
 
         ts1 = int(ts) / 100
         return ts, ts1
@@ -1023,10 +1024,8 @@ def getSingleSeqOrientFileSuffix(loci, samples, rmenu):
                                         with open(f"./loci/{locus}/{sample}_singleEnd_orient_minus.tsv", "w") as orientInfo:
                                                 for seq in minusOrientedSeqs:
                                                         orientInfo.write(seq + "\n")
-                        # else:
-                                # print(warningStyle + f"Locus {locus} / sample {sample}: no clusters found for applied parameters\n" + normalStyle)
-                print(warningStyle + f"For locus {locus}, found " + str(nTotalPlusOrientedSeqCount) + " sense (+) sequences and " + str(nTotalMinusOrientedSeqCount) + " antisense (-) sequences." + normalStyle + " Accounting for both will probably generate 2 separate alignments. We recommend keeping only " + ("anti" if nTotalMinusOrientedSeqCount > nTotalPlusOrientedSeqCount else "") + "sense sequences")
-                strand = promptUser("Enter \"+\" to keep only sense sequences, \"-\" to keep only antisense sequences, \"*\" to keep both", None, ["+", "-", "*", "back", "home", "exit"], 1, trim_2x, "")
+                print(warningStyle + f"For locus {locus}, found " + str(nTotalPlusOrientedSeqCount) + " sense (+) clusters and " + str(nTotalMinusOrientedSeqCount) + " antisense (-) clusters." + normalStyle + " Accounting for both will probably generate 2 separate alignments. " + warningStyle + "We recommend keeping only " + ("anti" if nTotalMinusOrientedSeqCount > nTotalPlusOrientedSeqCount else "") + "sense clusters" + normalStyle)
+                strand = promptUser("Enter \"+\" to keep only sense clusters, \"-\" to keep only antisense clusters, \"*\" to keep both", None, ["+", "-", "*", "back", "home", "exit"], 1, trim_2x, "")
                 if strand != "*":
                         strand = "plus" if strand == "+" else "minus"
                         for sample in samples:
@@ -1094,7 +1093,6 @@ def runs_1x():
                         print(errorStyle + f"\nMain analysis execution failed with error code {p.returncode}" + normalStyle + f", please check {current_dir}" + fileSep + "outputs" + fileSep + "res1.log")
                         customExit(1)
                 os.chdir('..')
-                # getSingleSeqOrientFileSuffix(lociSEs, samples, rmenu)
                 print(successStyle + f"Step {rmenu} ended successfully" + normalStyle)
 
         if rmenu == "1a":
@@ -1143,7 +1141,6 @@ def runs_1x():
                         print(errorStyle + f"\nMain analysis execution failed with error code {p.returncode}" + normalStyle + f", please check {current_dir}" + fileSep + "outputs" + fileSep + "res1a.log")
                         customExit(1)
                 os.chdir('..')
-                # getSingleSeqOrientFileSuffix(lociSEs, samples, rmenu)
                 print(successStyle + f"Step {rmenu} ended successfully" + normalStyle)
 
         if rmenu == "1b":
@@ -1223,7 +1220,6 @@ def runs_1x():
                         print(errorStyle + f"\nMain analysis execution failed with error code {p.returncode}" + normalStyle + f", please check {current_dir}" + fileSep + "outputs" + fileSep + "res1c.log")
                         customExit(1)
                 os.chdir('..')
-                # getSingleSeqOrientFileSuffix(lociSEs, samples, rmenu)
                 print(successStyle + f"Step {rmenu} ended successfully" + normalStyle)
 
         if rmenu == "1d":
@@ -1266,7 +1262,6 @@ def runs_1x():
                         print(errorStyle + f"\nMain analysis execution failed with error code {p.returncode}" + normalStyle + f", please check {current_dir}" + fileSep + "outputs" + fileSep + "res1d.log")
                         customExit(1)
                 os.chdir('..')
-                # getSingleSeqOrientFileSuffix(lociSEs, [sam_sel], rmenu)
                 print(successStyle + f"Step {rmenu} ended successfully" + normalStyle)
 
         if rmenu == "1e":
@@ -1527,25 +1522,24 @@ def trim_2x():
                                         for target in targets:
                                                 size = re.search('size=(.+?)$', target).group(1)
                                                 a = a + int(size)
-                                        b = int(a * float(ts1) + 1)
-                                        stat_2a.writelines(f"\tSum of sizes for {sample} = {a}\n"
-                                                                           f"\tThe sizes > {b} for {sample} were retained\n")
-                                        out.write(start_log_redirect('./' + sample + '.log') +
-                                                          f"vsearch --fastx_filter {sample}_pairedEnd_orient.fas --fastq_stripleft {trim_left} "
-                                                          f" --fastq_stripright {trim_right} --fastaout tmp --minsize {b}"
-                                                          + localErrorOnStopCmd + "\n"
-                                                          f"vsearch --derep_fulllength ./tmp --output {sample}_pairedEnd_select.fas "
-                                                          f'--sizein --sizeout\n' + localErrorOnStopCmd + "\n"
-                                                          + end_log_redirect('./' + sample + '.log'))
+                                        b = math.ceil(a * float(ts1))
+                                        stat_2a.writelines(f"\tSum of cluster sizes for {sample} = {a}\n\tWith threshold {ts[0]}, sizes >= {b} for {sample} were retained\n")
+                                        out.write(start_log_redirect('./' + loc2trim2a + "_" + sample + '.log') +
+                                                          f"vsearch --fastx_filter {sample}_pairedEnd_orient.fas --fastq_stripleft {trim_left} --fastq_stripright {trim_right} --fastaout tmp\n" + localErrorOnStopCmd + "\n"
+                                                          f"vsearch --derep_fulllength tmp --output tmp2 --sizein --sizeout\n" + localErrorOnStopCmd + "\n"
+                                                          f"vsearch --fastx_filter tmp2 --minsize {b} --fastaout {sample}_pairedEnd_select.fas\n" + localErrorOnStopCmd + "\n"
+                                                 + end_log_redirect('./' + sample + '.log'))
                                 subprocess.run([shellCmd, "./trim-select." + scriptExt])
                                 selected = open(f'./{sample}_pairedEnd_select.fas', 'r')
                                 nb_selected = selected.read().count('>')
                                 stat_2a.writelines(f"\tNumber of selected clusters for sample {sample}: {nb_selected}\n\n")
-                                sys.stdout.write(f"\nSum of sizes for {sample} at locus {loc2trim2a} = {a}\n"
-                                                                 f"With threshold set at {ts}, sizes > {b} were retained\n"
-                                                                 f"Number of selected clusters for sample {sample}: {nb_selected}\n")
+                                sys.stdout.write(f"\nSum of cluster sizes for {sample} at locus {loc2trim2a} = {a}: with threshold set at {ts[0]}%,{warningStyle} clusters with size >= {b} were retained{successStyle}\n"
+                                                        f"Number of selected clusters for sample {sample}: {nb_selected}\n" + normalStyle)
+                                if os.path.exists("tmp"):
+                                        os.remove("tmp")
+                                if os.path.exists("tmp2"):
+                                        os.remove("tmp2")
                         os.remove("trim-select." + scriptExt)
-                        os.remove("tmp")
                         os.chdir(current_dir)
                         stat_2a.flush()
                 stat_2a.close()        
@@ -1562,34 +1556,32 @@ def trim_2x():
                         ts = in_ts()
                         stat_2b.write(f"Locus {loc2trim2b} trimmed {trim_left} bp (forward) and {trim_right} bp (reverse) with threshold set at {ts1}\n")
                         for sample in samples:
-                                with open(sample + "_singleEnd_orient.fas", 'r') as filin, open("trim-select." + scriptExt, "w") as out:
+                                with open(sample + f"_singleEnd_orient{orientFileSuffix}.fas", 'r') as filin, open("trim-select." + scriptExt, "w") as out:
                                         targets = [line for line in filin if "size" in line]
                                         a = 0
                                         for target in targets:
                                                 size = re.search('size=(.+?)$', target).group(1)
                                                 a = a + int(size)
-                                        b = int(a * float(ts1) + 1)
-                                        stat_2b.writelines(f"\tSum of sizes for {sample} = {a}\n"
-                                                                           f"\tThe sizes > {b} for {sample} were retained\n")
-                                        out.write(start_log_redirect('./' + sample + '.log') +
-                                                          f"vsearch --fastx_filter {sample}_singleEnd_orient{orientFileSuffix}.fas --fastq_stripleft {trim_left} "
-                                                          f" --fastq_stripright {trim_right} --fastaout tmp --minsize {b}"
-                                                          + localErrorOnStopCmd + "\n"
-                                                          f"vsearch --derep_fulllength ./tmp --output {sample}_singleEnd_select.fas "
-                                                          f'--sizein --sizeout\n' + localErrorOnStopCmd + "\n"
-                                                          + end_log_redirect('./' + sample + '.log'))
+                                        b = math.ceil(a * float(ts1))
+                                        stat_2b.writelines(f"\tSum of cluster sizes for {sample} = {a}\n\tWith threshold {ts[0]}, sizes >= {b} for {sample} were retained\n")
+                                        out.write(start_log_redirect('./' + loc2trim2b + "_" + sample + '.log') +
+                                                          f"vsearch --fastx_filter {sample}_singleEnd_orient{orientFileSuffix}.fas --fastq_stripleft {trim_left} --fastq_stripright {trim_right} --fastaout tmp\n" + localErrorOnStopCmd + "\n"
+                                                          f"vsearch --derep_fulllength tmp --output tmp2 --sizein --sizeout\n" + localErrorOnStopCmd + "\n"
+                                                          f"vsearch --fastx_filter tmp2 --minsize {b} --fastaout {sample}_singleEnd_select.fas\n" + localErrorOnStopCmd + "\n"
+                                                 + end_log_redirect('./' + sample + '.log'))
                                 subprocess.run([shellCmd, "./trim-select." + scriptExt])
                                 nb_selected = open(sample + '_singleEnd_select.fas', 'r').read().count('>') if os.path.exists(sample + '_singleEnd_select.fas') else 0
                                 stat_2b.writelines(f"\tNumber of selected clusters for sample {sample}: {nb_selected}\n\n")
-                                sys.stdout.write(f"\nSum of sizes for {sample} at locus {loc2trim2b} = {a}\n"
-                                                                 f"With threshold set at {ts}, sizes > {b} were retained\n"
-                                                                 f"Number of selected clusters for sample {sample}: {nb_selected}\n")
+                                sys.stdout.write(f"\nSum of cluster sizes for {sample} at locus {loc2trim2b} = {a}: with threshold set at {ts[0]}%,{warningStyle} clusters with size >= {b} were retained{successStyle}\n"
+                                                        f"Number of selected clusters for sample {sample}: {nb_selected}\n" + normalStyle)
                                 if os.path.exists("tmp"):
                                         os.remove("tmp")
+                                if os.path.exists("tmp2"):
+                                        os.remove("tmp2")
                         os.remove("trim-select." + scriptExt)
                         os.chdir(current_dir)
                         stat_2b.flush()
-                stat_2b.close()                        
+                stat_2b.close()
 
         if rmenu == "2c":
                 os.chdir(current_dir)
@@ -1609,26 +1601,25 @@ def trim_2x():
                                         for target in targets:
                                                 size = re.search('size=(.+?)$', target).group(1)
                                                 a = a + int(size)
-                                        b = int(a * float(ts1) + 1)
-                                        stat_2c.write(f"\tSum of sizes for {sam2trim2c} at locus {loc2trim2c} = {a}\n"
-                                                                  f"\tAt threshold {ts} sizes > {b} for {sam2trim2c} were retained\n")
-                                        filout.writelines(start_log_redirect('./' + loc2trim2c + '.log') +
-                                                                          f' vsearch --fastx_filter {sam2trim2c}_pairedEnd_orient.fas --fastq_stripleft {trim_left} '
-                                                                          f' --fastq_stripright {trim_right} --fastaout tmp --minsize {b}\n'
-                                                                          + localErrorOnStopCmd + "\n"
-                                                                          f' vsearch --derep_fulllength ./tmp --output {sam2trim2c}_pairedEnd_select.fas '
-                                                                          f'--sizein --sizeout\n' + localErrorOnStopCmd + "\n"
-                                                                          + end_log_redirect('./' + sam2trim2c + '.log'))
+                                        b = math.ceil(a * float(ts1))
+                                        stat_2c.write(f"\tSum of cluster sizes for {sam2trim2c} at locus {loc2trim2c} = {a}\n\tWith threshold {ts[0]}, sizes >= {b} for {sam2trim2c} were retained\n")
+                                        filout.writelines(start_log_redirect('./' + loc2trim2c + "_" + sam2trim2c  + '.log') +
+                                                          f"vsearch --fastx_filter {sam2trim2c}_pairedEnd_orient.fas --fastq_stripleft {trim_left} --fastq_stripright {trim_right} --fastaout tmp\n" + localErrorOnStopCmd + "\n"
+                                                          f"vsearch --derep_fulllength tmp --output tmp2 --sizein --sizeout\n" + localErrorOnStopCmd + "\n"
+                                                          f"vsearch --fastx_filter tmp2 --minsize {b} --fastaout {sam2trim2c}_pairedEnd_select.fas\n" + localErrorOnStopCmd + "\n"
+                                                 + end_log_redirect('./' + sam2trim2c + '.log'))
                                 subprocess.run([shellCmd, "./trim-select." + scriptExt])
                                 selected = open("./" + sam2trim2c + "_pairedEnd_select.fas", "r")
                                 nb_selected = selected.read().count(">")
-                                stat_2c.write(f"\tNumber of selected clusters for {sam2trim2c} is: {nb_selected}\n\n")
-                                sys.stdout.write(f"\n{sam2trim2c}: sum of sizes = {a}\n"
-                                                                 f"The sizes > {b} were retained\n"
-                                                                 f"The number of selected clusters for {sam2trim2c} at locus {loc2trim2c} "
-                                                                 f"= {nb_selected}\n")
+                                stat_2c.write(f"\tNumber of selected clusters for sample {sam2trim2c}: {nb_selected}\n\n")
+                                sys.stdout.write(f"\nSum of cluster sizes for {sam2trim2c} at locus {loc2trim2c} = {a}: with threshold set at {ts[0]}%,{warningStyle} clusters with size >= {b} were retained{successStyle}\n"
+                                                        f"Number of selected clusters for sample {sam2trim2c}: {nb_selected}\n" + normalStyle)
                                 os.remove("trim-select." + scriptExt)
-                                os.remove("tmp")
+                                if os.path.exists("tmp"):
+                                        os.remove("tmp")
+                                if os.path.exists("tmp2"):
+                                        os.remove("tmp2")
+                                os.chdir(current_dir)
                                 stat_2c.flush()
                 stat_2c.close()
 
@@ -1645,33 +1636,31 @@ def trim_2x():
                         while True:
                                 sam2trim2d = in_trim_sample2d(loc2trim2d)
                                 ts = in_ts()
-                                with open(sam2trim2d + "_singleEnd_orient.fas", "r") as filin, open("trim-select." + scriptExt, "w") as filout:
+                                with open(sam2trim2d + f"_singleEnd_orient{orientFileSuffix}.fas", "r") as filin, open("trim-select." + scriptExt, "w") as filout:
                                         targets = [line for line in filin if "size" in line]
                                         a = 0
                                         for target in targets:
                                                 size = re.search('size=(.+?)$', target).group(1)
                                                 a = a + int(size)
-                                        b = int(a * float(ts1) + 1)
-                                        stat_2d.write(f"\tSum of sizes for {sam2trim2d} at locus {loc2trim2d} = {a}\n"
-                                                                  f"\tAt threshold {ts} sizes > {b} for {sam2trim2d} were retained\n")
+                                        b = math.ceil(a * float(ts1))
+                                        stat_2d.write(f"\tSum of cluster sizes for {sam2trim2d} at locus {loc2trim2d} = {a}\n\tWith threshold {ts[0]}, sizes >= {b} for {sam2trim2d} were retained\n")
                                         filout.writelines(start_log_redirect('./' + loc2trim2d + '.log') +
-                                                                          f" vsearch --fastx_filter {sam2trim2d}_singleEnd_orient{orientFileSuffix}.fas --fastq_stripleft {trim_left} "
-                                                                          f' --fastq_stripright {trim_right} --fastaout tmp --minsize {b}\n'
-                                                                          + localErrorOnStopCmd + "\n"
-                                                                          f' vsearch --derep_fulllength ./tmp --output {sam2trim2d}_singleEnd_select.fas '
-                                                                          f'--sizein --sizeout\n' + localErrorOnStopCmd + "\n"
-                                                                          + end_log_redirect('./' + sam2trim2d + '.log'))
+                                                                          f"vsearch --fastx_filter {sam2trim2d}_singleEnd_orient{orientFileSuffix}.fas --fastq_stripleft {trim_left} --fastq_stripright {trim_right} --fastaout tmp\n" + localErrorOnStopCmd + "\n"
+                                                                          f"vsearch --derep_fulllength tmp --output tmp2 --sizein --sizeout\n" + localErrorOnStopCmd + "\n"
+                                                                          f"vsearch --fastx_filter tmp2 --minsize {b} --fastaout {sam2trim2d}_singleEnd_select.fas\n" + localErrorOnStopCmd + "\n"
+                                                          + end_log_redirect('./' + loc2trim2d + "_" + sam2trim2d  + '.log'))
                                 subprocess.run([shellCmd, "./trim-select." + scriptExt])
                                 selected = open("./" + sam2trim2d + "_singleEnd_select.fas", "r")
                                 nb_selected = selected.read().count(">")
                                 stat_2d.write(f"\tNumber of selected clusters for {sam2trim2d} is: {nb_selected}\n\n")
-                                sys.stdout.write(f"\n{sam2trim2d}: sum of sizes = {a}\n"
-                                                                 f"The sizes > {b} were retained\n"
-                                                                 f"Number of selected clusters for {sam2trim2d} at locus {loc2trim2d} "
-                                                                 f"= {nb_selected}\n")
+                                sys.stdout.write(f"\nSum of cluster sizes for {sam2trim2d} at locus {loc2trim2d} = {a}: with threshold set at {ts[0]}%,{warningStyle} clusters with size >= {b} were retained{successStyle}\n"
+                                                        f"Number of selected clusters for sample {sam2trim2d}: {nb_selected}\n" + normalStyle)
                                 os.remove("trim-select." + scriptExt)
                                 if os.path.exists("tmp"):
                                         os.remove("tmp")
+                                if os.path.exists("tmp2"):
+                                        os.remove("tmp2")
+                                os.chdir(current_dir)
                                 stat_2d.flush()
                 stat_2d.close()
 
