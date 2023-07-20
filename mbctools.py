@@ -2547,14 +2547,23 @@ def rerun(nextMenu):
 
 
 def main():
-	if winOS:
-		command = 'powershell.exe Get-ExecutionPolicy'
-		process = subprocess.Popen(command, stdout=subprocess.PIPE)
-		result = process.communicate()[0].strip()
-		execution_policy = result.decode()
-		if execution_policy != 'Unrestricted':
-			print(errorStyle + "\nPlease run the following command in Windows prompt to be able to use mbctools:\n" + normalStyle + "\nSet-ExecutionPolicy Unrestricted -Scope CurrentUser -Force\n")
-			customExit(1)
+    if winOS:
+        try:
+            # try dos mode
+            command = 'powershell.exe Get-ExecutionPolicy'
+            process = subprocess.Popen(command, stdout=subprocess.PIPE)
+            result = process.communicate()[0].strip()
+            execution_policy = result.decode()
+        except UnicodeDecodeError:
+            command = "powershell.exe Get-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\PowerShell\\1\\ShellIds\\Microsoft.PowerShell' -Name 'ExecutionPolicy'"
+            result = subprocess.check_output(command, shell=True, text=True)
+            policy_value = re.search(r"ExecutionPolicy : (.+)", result)
+            if policy_value:
+                execution_policy = policy_value.group(1).strip()
+
+        if execution_policy != 'Unrestricted':
+            print(errorStyle + "\nPlease run the following command in Windows prompt to be able to use mbctools:\n" + normalStyle + "\nSet-ExecutionPolicy Unrestricted -Scope CurrentUser -Force\n")
+            customExit(1)
 
 	try:
 		p = subprocess.run(["vsearch"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
