@@ -64,12 +64,6 @@ import zipfile
 import shutil
 import math
 
-try:
-        import dateutil.parser
-except ModuleNotFoundError:
-        subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'python-dateutil'])
-        import dateutil.parser
-
 winOS = "Windows" in platform.uname()
 shellCmd = "powershell" if winOS else "bash"
 scriptExt = "ps1" if winOS else "sh"
@@ -2323,8 +2317,8 @@ def menu4c():
 
         sampleMetadataFile = None
         print(f"\n\nYou must now provide a tabulated metadata file for your samples. {warningStyle}A header field named 'Sample' is expected for the column featuring sample names{normalStyle}")
-        print(f"Any field with '{warningStyle}date{normalStyle}' in its header name will be considered to be the sample {warningStyle}collection date{normalStyle}")
-        print("{warningStyle}Collection location{normalStyle} may be specified:")
+        print(f"Any field with '{warningStyle}date{normalStyle}' in its header name will be considered to be the sample {warningStyle}collection date{normalStyle} (recommended format: YYYY-MM-DD)")
+        print(f"{warningStyle}Collection location{normalStyle} may be specified:")
         print("\t- either as commma-separated decimal-format values in a single field named 'LatLon' (e.g. -17.7127, -67.9905)")
         print("\t- or in separate columns named 'Latitude' and 'Longitude', in decimal format (e.g. -17.7127) or DMS format (e.g. 16°42'45.6\"S)")
         print("Any additional columns will remain named as provided")
@@ -2426,9 +2420,9 @@ def menu4c():
                                 collDate = splitLine[collectionDateIndex].strip() if collectionDateIndex != None else None
                                 if collDate != None:
                                         try:
-                                                outfile.write(str(dateutil.parser.parse(collDate)).replace(" 00:00:00", ""))
+                                                outfile.write(str(parse_date(collDate)).replace(" 00:00:00", ""))
                                         except Exception as e:
-                                                print(errorStyle + "Unable to parse date at line " + str(i) + ": " + collDate + normalStyle)
+                                                print(errorStyle + "Unable to parse date at line " + str(i) + " \"" + collDate + "\": " + str(e) + normalStyle)
                                                 menu4c()
 
                                 j = 0
@@ -2486,6 +2480,19 @@ def menu4d(invokedByUser):
                 rerun(None)
         else:
                 main_menu4()
+
+
+def parse_date(date_str):
+    match = re.match(r"(\d{4}[/-]?[0-9]{1,2}[/-]?[0-9]{1,2})", date_str)
+    if match:
+        separator = match.group(0)[4] if len(match.group(0)) > 4 else "-"
+        date_parts = date_str.split(separator)
+        year = int(date_parts[0])
+        month = int(date_parts[1])
+        day = int(date_parts[2])
+        return datetime.datetime(year, month, day)
+    else:
+        return datetime.datetime.strptime(date_str, "%B %d, %Y")
 
 
 def determineLatLon(cellArray, latLonIndex, latitudeIndex, longitudeIndex, sampleIndex):
