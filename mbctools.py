@@ -1589,7 +1589,22 @@ def trim_2x():
                                                                           f"vsearch --fastx_filter tmp2 --minsize {b} --fastaout {sample}_singleEnd_select.fas\n" + localErrorOnStopCmd + "\n"
                                                                  + end_log_redirect('./' + sample + '.log'))
                                                 subprocess.run([shellCmd, "./trim-select." + scriptExt])
+
+                                                # rename sequence IDs to keep track of their type (merged R1/R2, sense single-end, antisense single-end)
+                                                senseReplacements = []
+                                                if os.path.isfile(sample + "_singleEnd_orient_plus.tsv") and os.path.getsize(sample + "_singleEnd_orient_plus.tsv") > 0:
+                                                        for line in open(sample + "_singleEnd_orient_plus.tsv", 'r'):
+                                                                senseReplacements.append((line, line.replace("_R1.", "_R1+.")))
+                                                antiSenseReplacements = []
+                                                if os.path.isfile(sample + "_singleEnd_orient_minus.tsv") and os.path.getsize(sample + "_singleEnd_orient_minus.tsv") > 0:
+                                                        for line in open(sample + "_singleEnd_orient_minus.tsv", 'r'):
+                                                                antiSenseReplacements.append((line, line.replace("_R1.", "_R1-.")))
+                                                replaceInFile(sample + "_singleEnd_orient_plus.tsv", senseReplacements)
+                                                replaceInFile(sample + "_singleEnd_orient_minus.tsv", antiSenseReplacements)
+                                                replaceInFile(sample + "_singleEnd_select.fas", senseReplacements + antiSenseReplacements)
+
                                                 nb_selected = open(sample + '_singleEnd_select.fas', 'r').read().count('>') if os.path.exists(sample + '_singleEnd_select.fas') else 0
+
                                                 stat_2b.writelines(f"\tNumber of selected clusters for sample {sample}: {nb_selected}\n\n")
                                                 sys.stdout.write(f"Sum of cluster sizes for {sample} at locus {loc2trim2b} = {a}: with threshold set at {ts[0]}%,{warningStyle} clusters with size >= {b} were retained{successStyle}\n"
                                                                         f"Number of selected clusters for sample {sample}: {nb_selected}\n" + normalStyle)
@@ -2130,6 +2145,7 @@ def menu3():
 
 
 def derepBasedOnIDs(locusToFastaDict, outFastaName, outTsvName):
+        readTypePattern = r'(merged|R1[\-+])'        
         fastaContents = ""
         with open(outFastaName, "w") as fastaFile, open(outTsvName, "w") as seqCompositionFile:
                 i = 0
@@ -2139,7 +2155,8 @@ def derepBasedOnIDs(locusToFastaDict, outFastaName, outTsvName):
                         i += 1
 
                 seqSampleAbundances = {}
-                seqHashToMeaningfulNamesDict = {}
+                seqHashToSamplesDict = {}
+                seqOrientations = {}
                 skippedLoci = []
                 totalDistinctSeqCount = 0
                 for locus in locusToFastaDict:
@@ -2157,17 +2174,19 @@ def derepBasedOnIDs(locusToFastaDict, outFastaName, outTsvName):
                                                 seqCount += 1
                                                 splitIdLine = line[1:].split(" ")
                                                 sampleAndCount = re.sub(r'_(merged|R1).*;', ';', splitIdLine[1].replace("sample=", "")).split(";size=")
+
                                                 if splitIdLine[0] not in seqSampleAbundances:
                                                         fastaContents += ">" + splitIdLine[0] + "\n"
                                                         seqSampleAbundances[splitIdLine[0]] = ['0'] * len(samples)
                                                         totalDistinctSeqCount += 1
+                                                        seqOrientations[splitIdLine[0]] = re.search(readTypePattern, splitIdLine[1]).group(0)
                                                         skipActualSequence = False
                                                 else:
                                                         skipActualSequence = True
                                                 seqSampleAbundances[splitIdLine[0]][samples.index(sampleAndCount[0])] = sampleAndCount[1]
-                                                if splitIdLine[0] not in seqHashToMeaningfulNamesDict:
-                                                        seqHashToMeaningfulNamesDict[splitIdLine[0]] = []
-                                                seqHashToMeaningfulNamesDict[splitIdLine[0]].append(sampleAndCount[0])
+                                                if splitIdLine[0] not in seqHashToSamplesDict:
+                                                        seqHashToSamplesDict[splitIdLine[0]] = []
+                                                seqHashToSamplesDict[splitIdLine[0]].append(sampleAndCount[0])
                                         elif skipActualSequence is False:
                                                 fastaContents += lines[j]
                                         j += 1
@@ -2175,11 +2194,11 @@ def derepBasedOnIDs(locusToFastaDict, outFastaName, outTsvName):
                                 print(warningStyle + "File not found: results_by_locus/" + locus + fileSep + locus + '_allseq_select.fasta: skipping locus ' + locus + normalStyle)
                                 skippedLoci.append(locus)
                         i += 1
-                
+
                 i = 1
                 padLevel = len(str(len(seqSampleAbundances)))
                 for seqId in seqSampleAbundances:
-                        seqName = "seq" + str(i).zfill(padLevel) + "." + "_".join(seqHashToMeaningfulNamesDict[seqId][0:5]) + ("" if len(seqHashToMeaningfulNamesDict[seqId]) <= 5 else "...")
+                        seqName = "seq" + str(i).zfill(padLevel) + "-" + seqOrientations[seqId] + "." + "_".join(seqHashToSamplesDict[seqId][0:5]) + ("" if len(seqHashToSamplesDict[seqId]) <= 5 else "...")
                         fastaContents = fastaContents.replace(">" + seqId + "\n", ">" + seqName + "\n")
                         seqCompositionFile.write("\n" + seqName + "\t" + "\t".join(seqSampleAbundances[seqId]))
                         i += 1
@@ -2560,6 +2579,17 @@ def dmsToDecimal(dmsString):
         deg, minutes, seconds, direction = re.split('[°\'"]', dmsString.replace("''", "\"").replace(" ", ""))
         return round((float(deg) + float(minutes) / 60 + float(seconds) / (60 * 60)) * (
                 -1 if direction.upper() in ['W', 'S'] else 1), 6)
+
+
+def replaceInFile(filename, replacements):
+        with open(filename, 'r') as file:
+            content = file.read()
+
+        for old_text, new_text in replacements:
+            content = content.replace(old_text, new_text)
+
+        with open(filename, 'w') as file:
+            file.write(content)
 
 
 def rerun(nextMenu):
