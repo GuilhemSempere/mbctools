@@ -2582,14 +2582,15 @@ def dmsToDecimal(dmsString):
 
 
 def replaceInFile(filename, replacements):
-        with open(filename, 'r') as file:
-            content = file.read()
+        if os.path.exists(filename) and os.path.getsize(filename) > 0:
+                with open(filename, 'r') as file:
+                    content = file.read()
 
-        for old_text, new_text in replacements:
-            content = content.replace(old_text, new_text)
+                for old_text, new_text in replacements:
+                    content = content.replace(old_text, new_text)
 
-        with open(filename, 'w') as file:
-            file.write(content)
+                with open(filename, 'w') as file:
+                    file.write(content)
 
 
 def rerun(nextMenu):
