@@ -1034,13 +1034,21 @@ def getSingleSeqOrientFileSuffix(loci, samples, rmenu):
                         return None
                 print(f"\nFor locus {locus}, found " + str(nTotalPlusOrientedReadCount) + " sense (+) reads distributed in " + str(nTotalPlusOrientedClusterCount) + " clusters and " + str(nTotalMinusOrientedReadCount) + " antisense (-) reads distributed in " + str(nTotalMinusOrientedClusterCount) + " clusters.\n" + warningStyle
                         + "We discourage accounting for both, which would probably generate 2 separate alignments." + normalStyle)
-                strand = promptUser("Enter \"+\" to keep only sense clusters, \"-\" to keep only antisense clusters, \"*\" to keep both", None, ["+", "-", "*", "back", "home", "exit"], 1, trim_2x, "")
+                promptOptions = ["back", "home", "exit"]
+                if nTotalPlusOrientedReadCount > 0 and nTotalMinusOrientedReadCount > 0:
+                        promptOptions = ["*"] + promptOptions
+                if nTotalMinusOrientedReadCount > 0:
+                        promptOptions = ["-"] + promptOptions
+                if nTotalPlusOrientedReadCount > 0:
+                        promptOptions = ["+"] + promptOptions
+                strand = promptUser("Enter \"+\" to keep only sense clusters, \"-\" to keep only antisense clusters, \"*\" to keep both", None, promptOptions, 1, trim_2x, "")
                 if strand != "*":
                         strand = "plus" if strand == "+" else "minus"
                         for sample in samples:
-                                logFile = open(f'{current_dir}{fileSep}outputs{fileSep}res' + rmenu + '.log', 'a')
-                                subprocess.run(["vsearch", "--fastx_getseqs", f"./results_by_locus/{locus}/{sample}_singleEnd_orient.fas", "--labels", f"./results_by_locus/{locus}/{sample}_singleEnd_orient_" + strand + ".tsv", "--fastaout", f"./results_by_locus/{locus}/{sample}_singleEnd_orient_" + strand + ".fas"], stderr=logFile)
-                                logFile.close()
+                                if os.path.exists(f"./results_by_locus/{locus}/{sample}_singleEnd_orient_" + strand + ".tsv"):
+                                        logFile = open(f'{current_dir}{fileSep}outputs{fileSep}{rmenu}_{locus}_{sample}_{strand}.log', 'a')
+                                        subprocess.run(["vsearch", "--fastx_getseqs", f"./results_by_locus/{locus}/{sample}_singleEnd_orient.fas", "--labels", f"./results_by_locus/{locus}/{sample}_singleEnd_orient_" + strand + ".tsv", "--fastaout", f"./results_by_locus/{locus}/{sample}_singleEnd_orient_" + strand + ".fas"], stderr=logFile)
+                                        logFile.close()
                         return "_" + strand
                 return ""
 
