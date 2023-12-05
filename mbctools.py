@@ -1706,6 +1706,20 @@ def trim_2x():
                                                                                   f"vsearch --fastx_filter tmp2 --minsize {b} --fastaout {sam2trim2d}_singleEnd_select.fas\n" + localErrorOnStopCmd + "\n"
                                                                   + end_log_redirect('./' + loc2trim2d + "_" + sam2trim2d  + '.log'))
                                         subprocess.run([shellCmd, "./trim-select." + scriptExt])
+
+                                        # rename sequence IDs to keep track of their type (merged R1/R2, sense single-end, antisense single-end)
+                                        senseReplacements = []
+                                        if os.path.isfile(sam2trim2d + "_singleEnd_orient_plus.tsv") and os.path.getsize(sam2trim2d + "_singleEnd_orient_plus.tsv") > 0:
+                                                for line in open(sam2trim2d + "_singleEnd_orient_plus.tsv", 'r'):
+                                                        senseReplacements.append((line, line.replace("_R1.", "_R1+.")))
+                                        antiSenseReplacements = []
+                                        if os.path.isfile(sam2trim2d + "_singleEnd_orient_minus.tsv") and os.path.getsize(sam2trim2d + "_singleEnd_orient_minus.tsv") > 0:
+                                                for line in open(sam2trim2d + "_singleEnd_orient_minus.tsv", 'r'):
+                                                        antiSenseReplacements.append((line, line.replace("_R1.", "_R1-.")))
+                                        replaceInFile(sam2trim2d + "_singleEnd_orient_plus.tsv", senseReplacements)
+                                        replaceInFile(sam2trim2d + "_singleEnd_orient_minus.tsv", antiSenseReplacements)
+                                        replaceInFile(sam2trim2d + "_singleEnd_select.fas", senseReplacements + antiSenseReplacements)
+
                                         selected = open("./" + sam2trim2d + "_singleEnd_select.fas", "r")
                                         nb_selected = selected.read().count(">")
                                         stat_2d.write(f"\tNumber of selected clusters for {sam2trim2d} is: {nb_selected}\n\n")
