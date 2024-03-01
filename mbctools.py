@@ -44,9 +44,10 @@ Usage:
 
 __authors__ = "Christian Barnabe, Guilhem Sempere"
 __contact__ = "guilhem.sempere@cirad.fr"
-__date__ = "2023"
-__version__ = "1"
-__copyright__ = " copyleft "
+__date__ = "2024-02-27"
+__version__ = "1.0a3"
+__copyright__ = "copyleft "
+__license__ = "MIT License"
 
 import sys
 import time
@@ -1594,7 +1595,7 @@ def trim_2x():
                                                         out.write(start_log_redirect('./' + loc2trim2b + "_" + sample + '.log') +
                                                                           f"vsearch --fastx_filter {sample}_singleEnd_orient{orientFileSuffix}.fas --fastq_stripleft {trim_left} --fastq_stripright {trim_right} --fastaout tmp\n" + localErrorOnStopCmd + "\n"
                                                                           f"vsearch --derep_fulllength tmp --output tmp2 --sizein --sizeout\n" + localErrorOnStopCmd + "\n"
-                                                                          f"vsearch --fastx_filter tmp2 --minsize {b} --fastaout {sample}_singleEnd_select.fas\n" + localErrorOnStopCmd + "\n"
+                                                                          "vsearch --fastx_filter tmp2 " + (f"--minsize {b} " if b >= 1 else "") + f"--fastaout {sample}_singleEnd_select.fas\n" + localErrorOnStopCmd + "\n"
                                                                  + end_log_redirect('./' + sample + '.log'))
                                                 subprocess.run([shellCmd, "./trim-select." + scriptExt])
 
@@ -1602,11 +1603,13 @@ def trim_2x():
                                                 senseReplacements = []
                                                 if os.path.isfile(sample + "_singleEnd_orient_plus.tsv") and os.path.getsize(sample + "_singleEnd_orient_plus.tsv") > 0:
                                                         for line in open(sample + "_singleEnd_orient_plus.tsv", 'r'):
-                                                                senseReplacements.append((line, line.replace("_R1.", "_R1+.")))
+                                                                idWithoutSize = line.split(";size=")[0]
+                                                                senseReplacements.append((idWithoutSize, idWithoutSize.replace("_R1.", "_R1+.")))
                                                 antiSenseReplacements = []
                                                 if os.path.isfile(sample + "_singleEnd_orient_minus.tsv") and os.path.getsize(sample + "_singleEnd_orient_minus.tsv") > 0:
                                                         for line in open(sample + "_singleEnd_orient_minus.tsv", 'r'):
-                                                                antiSenseReplacements.append((line, line.replace("_R1.", "_R1-.")))
+                                                                idWithoutSize = line.split(";size=")[0]
+                                                                antiSenseReplacements.append((idWithoutSize, idWithoutSize.replace("_R1.", "_R1-.")))
                                                 replaceInFile(sample + "_singleEnd_orient_plus.tsv", senseReplacements)
                                                 replaceInFile(sample + "_singleEnd_orient_minus.tsv", antiSenseReplacements)
                                                 replaceInFile(sample + "_singleEnd_select.fas", senseReplacements + antiSenseReplacements)
@@ -1703,7 +1706,7 @@ def trim_2x():
                                                 filout.writelines(start_log_redirect('./' + loc2trim2d + '.log') +
                                                                                   f"vsearch --fastx_filter {sam2trim2d}_singleEnd_orient{orientFileSuffix}.fas --fastq_stripleft {trim_left} --fastq_stripright {trim_right} --fastaout tmp\n" + localErrorOnStopCmd + "\n"
                                                                                   f"vsearch --derep_fulllength tmp --output tmp2 --sizein --sizeout\n" + localErrorOnStopCmd + "\n"
-                                                                                  f"vsearch --fastx_filter tmp2 --minsize {b} --fastaout {sam2trim2d}_singleEnd_select.fas\n" + localErrorOnStopCmd + "\n"
+                                                                                  "vsearch --fastx_filter tmp2 " + (f"--minsize {b} " if b >= 1 else "") + f"--fastaout {sam2trim2d}_singleEnd_select.fas\n" + localErrorOnStopCmd + "\n"
                                                                   + end_log_redirect('./' + loc2trim2d + "_" + sam2trim2d  + '.log'))
                                         subprocess.run([shellCmd, "./trim-select." + scriptExt])
 
@@ -1711,11 +1714,13 @@ def trim_2x():
                                         senseReplacements = []
                                         if os.path.isfile(sam2trim2d + "_singleEnd_orient_plus.tsv") and os.path.getsize(sam2trim2d + "_singleEnd_orient_plus.tsv") > 0:
                                                 for line in open(sam2trim2d + "_singleEnd_orient_plus.tsv", 'r'):
-                                                        senseReplacements.append((line, line.replace("_R1.", "_R1+.")))
+                                                        idWithoutSize = line.split(";size=")[0]
+                                                        senseReplacements.append((idWithoutSize, idWithoutSize.replace("_R1.", "_R1+.")))
                                         antiSenseReplacements = []
                                         if os.path.isfile(sam2trim2d + "_singleEnd_orient_minus.tsv") and os.path.getsize(sam2trim2d + "_singleEnd_orient_minus.tsv") > 0:
                                                 for line in open(sam2trim2d + "_singleEnd_orient_minus.tsv", 'r'):
-                                                        antiSenseReplacements.append((line, line.replace("_R1.", "_R1-.")))
+                                                        idWithoutSize = line.split(";size=")[0]
+                                                        antiSenseReplacements.append((idWithoutSize, idWithoutSize.replace("_R1.", "_R1-.")))
                                         replaceInFile(sam2trim2d + "_singleEnd_orient_plus.tsv", senseReplacements)
                                         replaceInFile(sam2trim2d + "_singleEnd_orient_minus.tsv", antiSenseReplacements)
                                         replaceInFile(sam2trim2d + "_singleEnd_select.fas", senseReplacements + antiSenseReplacements)
