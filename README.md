@@ -36,3 +36,21 @@ GigaScience, Volume 10, Issue 2, February 2021, giab001, https://doi.org/10.1093
 - Python v3.7 or higher
 - VSEARCH v2.19.0 or higher must be installed and accessible in the PATH (binaries for all platforms available at https://github.com/torognes/vsearch, along with installation procedure descriptions)
 - Windows users will need to enable Powershell script execution using the Set-ExecutionPolicy command 
+
+---
+
+## Procedure for Windows setup:
+
+- Download and install latest Python3 release from https://www.python.org/downloads/ (simplest way is to use the 64-bit installer). Don't forget to tick the "Add python.exe to PATH" checkbox before launching setup
+
+- Download and unzip latest VSEARCH release from https://github.com/torognes/vsearch/releases
+
+- Locate the path to the vsearch.exe executable (e.g., C:\Users\<UserName>\Downloads\vsearch-2.28.1-win-x86_64) and add it to the PATH environment variable as follows:
+  - Press Win + R, type sysdm.cpl, and press Enter
+  - In the Advanced system settings tab, click Environment Variables
+  - Find the Path environment variable and select it. Click Edit
+  - In the Edit System Variable window, add an entry pointing to the location of vsearch.exe (not including the file name, only its full path). Click OK until all windows disappear
+
+- Open a command prompt and type "pip install mbctools"
+
+You should then be able to launch mbctools directly from the command prompt or Powershell, by typing "mbctools".
