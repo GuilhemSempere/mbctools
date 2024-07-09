@@ -44,8 +44,8 @@ Usage:
 
 __authors__ = "Christian Barnabe, Guilhem Sempere"
 __contact__ = "guilhem.sempere@cirad.fr"
-__date__ = "2024-02-27"
-__version__ = "1.0a3"
+__date__ = "2024-07-09"
+__version__ = "1.0a4"
 __copyright__ = "copyleft "
 __license__ = "MIT License"
 
@@ -1998,7 +1998,7 @@ def menu1():
         runs_1x()
         stats_1x()
         rerun(None)
-        if len(sys.argv) == 0:
+        if len(sys.argv) < 2:
                 rerun(None)
 
 
@@ -2660,14 +2660,14 @@ def main():
                         global rmenu
                         rmenu = "1"
                         menu1()
-                        customExit(0)
+                        exit(0)
                 else:
                         print(errorStyle + "\nUnexisting configuration file: " + sys.argv[1] + "\n" + normalStyle)
-                        customExit(1)
+                        exit(1)
 
         os.system("cls" if winOS else "clear")
 
-        sys.stdout.write(titleStyle + "\n------------------------------ mbctools - MAIN MENU ------------------------------" + normalStyle + "\n")
+        sys.stdout.write(titleStyle + "\n------------------------------ mbctools v" + __version__ + " - MAIN MENU ------------------------------" + normalStyle + "\n")
         printHowToCite()
         sys.stdout.write(titleStyle + "NAVIGATION CONVENTIONS:\n" + normalStyle
                                          + "Entering '" + promptStyle + "back" + normalStyle + "' returns to the program upper level, if any\n"
