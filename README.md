@@ -39,7 +39,7 @@ GigaScience, Volume 10, Issue 2, February 2021, giab001, https://doi.org/10.1093
 
 ---
 
-## Procedure for Windows setup:
+## Procedure for Windows setup
 
 - Download and install latest Python3 release from https://www.python.org/downloads/ (simplest way is to use the 64-bit installer). Don't forget to tick the "Add python.exe to PATH" checkbox before launching setup
 
@@ -54,3 +54,15 @@ GigaScience, Volume 10, Issue 2, February 2021, giab001, https://doi.org/10.1093
 - Open a command prompt and type "pip install mbctools"
 
 You should then be able to launch mbctools directly from the command prompt or Powershell, by typing "mbctools".
+
+---
+
+## Test data
+Test data are available at https://doi.org/10.23708/W3TODJ and may be used as a guidance example
+
+---
+
+## Getting started
+
+Once VSEARCH + mbctools are installed and accessible from the PATH, and .txt files pointing to the data have been edited, entering the "mbctools" command from a console is normally enough to launch the program.
+If you did not use pip to install mbctools and directly downloaded mbctools.py from the source code repository, may have have to try different commands like "./mbctools.py", "python mbctools.py" or "python3 mbctools.py"
