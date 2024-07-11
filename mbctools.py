@@ -44,9 +44,9 @@ Usage:
 
 __authors__ = "Christian Barnabe, Guilhem Sempere"
 __contact__ = "guilhem.sempere@cirad.fr"
-__date__ = "2024-07-09"
-__version__ = "1.0a4"
-__copyright__ = "copyleft "
+__date__ = "2024-07-11"
+__version__ = "1.0-beta"
+__copyright__ = "copyleft"
 __license__ = "MIT License"
 
 import sys
