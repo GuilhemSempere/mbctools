@@ -25,7 +25,7 @@ setup(
     long_description = long_descr,
     long_description_content_type="text/markdown",
     url='https://github.com/GuilhemSempere/mbctools/blob/dev/mbctools.py',
-    author='Christian Barnabe, Guilhem Sempere',
+    author='Christian Barnabé, Guilhem Sempéré',
     author_email='guilhem.sempere@cirad.fr',
     license='MIT',
     packages=find_packages(),

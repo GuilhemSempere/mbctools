@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
-"""mbctools a cross-platform toolkit to make use of VSEARCH easier and interactive, thus helping analyze
+"""
+mbctools a cross-platform toolkit to make use of VSEARCH easier and interactive, thus helping analyze
 metabarcoding data in the best conditions. It assumes VSEARCH is pre-installed and consists in the following MAIN MENU:
 
 1 -> INITIAL ANALYSIS (mandatory)
@@ -35,19 +36,25 @@ Option 4 offers the following submenu:
 
 VSEARCH reference:
 Rognes T, Flouri T, Nichols B, Quince C, Mahe F (2016). VSEARCH: a versatile open source tool for metagenomics
-PeerJ 4:e2584 doi: 10.7717/peerj.2584 https://doi.org/10.7717/peerj.2584
+PeerJ 4:e2584 doi: https://doi.org/10.7717/peerj.2584
+
+metaXplor reference:
+Sempéré G, Pétel A, Abbé M, et al (2021) metaXplor: an interactive viral and microbial metagenomic data manager
+GigaScience 10:giab001 doi: https://doi.org/10.1093/gigascience/giab001
+
 
 Usage:
 =====
         python3 mbctools.py
+        (or simply "mbctools") if installed using pip
 """
 
-__authors__ = "Christian Barnabe, Guilhem Sempere"
+__authors__ = "Christian Barnabé, Guilhem Sempéré"
 __contact__ = "guilhem.sempere@cirad.fr"
-__date__ = "2024-07-11"
-__version__ = "1.0-beta"
-__copyright__ = "copyleft"
-__license__ = "MIT License"
+__date__ = "2024-07-23"
+__version__ = "1.0-beta2"
+__copyright__ = "Copyright (c) 2024 IRD, CIRAD"
+__license__ = "This software is licensed under the MIT License. The full license text is available at https://github.com/GuilhemSempere/mbctools/blob/main/LICENSE"
 
 import sys
 import time
@@ -1832,7 +1839,7 @@ def quit_mbctools():
 def printHowToCite():
         print(warningStyle + "\nPlease cite this software as follows:" +
                         citationStyle + "\nmbctools:\tA User-Friendly Metabarcoding and Cross-Platform Pipeline for Analyzing\n\t\tMultiple Amplicon Sequencing Data across a Large Diversity of Organisms" + normalStyle
-                        + "\nChristian Barnabé, Guilhem Sempéré, Vincent Manzanilla and Etienne Waleckx.\n" + citationStyle + "https://github.com/GuilhemSempere/mbctools" + normalStyle + "\n\n")
+                        + "\nC. Barnabé, G. Sempéré, V. Manzanilla, J. Moo-Millan, A. Amblard-Rambert and E. Waleckx\n" + citationStyle + "bioRxiv, 2024.02.08.579441, https://doi.org/10.1101/2024.02.08.579441" + normalStyle + "\n\n")
 
 
 def main_menu1():
