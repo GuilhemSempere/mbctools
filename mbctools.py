@@ -51,8 +51,8 @@ Usage:
 
 __authors__ = "Christian Barnabé, Guilhem Sempéré"
 __contact__ = "guilhem.sempere@cirad.fr"
-__date__ = "2024-07-23"
-__version__ = "1.0-beta2"
+__date__ = "2024-07-24"
+__version__ = "1.0-beta3"
 __copyright__ = "Copyright (c) 2024 IRD, CIRAD"
 __license__ = "This software is licensed under the MIT License. The full license text is available at https://github.com/GuilhemSempere/mbctools/blob/main/LICENSE"
 
@@ -323,7 +323,7 @@ def in_identity():
         clusters to the different loci, options 1, 1a, 1b, 1c and 1d
         """
         global identity
-        identity = promptUser("Enter identity parameter to match the clusters against references, i.e. the identity percentage, enter an integer from 0 to 100", "70", ["back", "home", "exit"], 2, main_menu1, "")
+        identity = promptUser("Enter identity parameter to match the clusters against references (as a percentage), enter an integer from 0 to 100", "70", ["back", "home", "exit"], 2, main_menu1, "")
         identity = int(identity) / 100
 
 
