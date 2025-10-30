@@ -45,9 +45,9 @@ Usage:
 
 __authors__ = "Christian Barnabé, Guilhem Sempéré"
 __contact__ = "guilhem.sempere@cirad.fr"
-__date__ = "2024-10-30"
-__version__ = "1.0"
-__copyright__ = "Copyright (c) 2024 IRD, CIRAD"
+__date__ = "2025-10-30"
+__version__ = "1.01"
+__copyright__ = "Copyright (c) 2024-2025 IRD, CIRAD"
 __license__ = "This software is licensed under the MIT License. The full license text is available at https://github.com/GuilhemSempere/mbctools/blob/main/LICENSE"
 
 import sys
@@ -2326,17 +2326,30 @@ def menu4b():
                         if lines[i].startswith("#"):
                                 if database == None and "Database:" in lines[i]:
                                         try:
-                                                database = lines[i].split(" ")[2]
-                                                if database == "nt":
-                                                        database = "n"
-                                                elif database == "nr":
-                                                        database = "p"
-                                                else:
-                                                        raise Exception("Unsupported Database type: " + database)
-                                        except:
-                                                print(errorStyle + "Unable to parse accession type prefix in '" + lines[i] + "'" + normalStyle)
-                                                os.remove(metaXplorAssignments)
-                                                menu4b()
+                                            database = lines[i].split(" ")[2]
+
+                                            # Nucleotide databases: map to "n"
+                                            nucleotide_databases = {
+                                                "nt", "core_nt", "refseq_rna", "refseq_genomic", "est", "gss", "pat",
+                                                "sts", "htgs", "env_nt", "16S_rRNA", "tsa_nr", "wgs", "mitogenomes", "plastid_genomes"
+                                            }
+
+                                            # Protein databases: map to "p"
+                                            protein_databases = {
+                                                "nr", "refseq_protein", "swissprot", "pdb", "env_nr", "pat_protein", "uniprotkb", "cdd"
+                                            }
+
+                                            if database in nucleotide_databases:
+                                                database = "n"
+                                            elif database in protein_databases:
+                                                database = "p"
+                                            else:
+                                                raise Exception(f"Unsupported Database type: {database}")
+
+                                        except Exception as e:
+                                            print(errorStyle + f"Unable to parse accession type prefix in '{lines[i]}': {e}" + normalStyle)
+                                            os.remove(metaXplorAssignments)
+                                            menu4b()
                                 elif previousQseqId == None and "Fields:" in lines[i]:
                                         outfile.write(
                                                 lines[i].split(":")[1].strip().replace(", ", "\t").replace("query acc.ver", "qseqid").replace(
