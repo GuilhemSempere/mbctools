@@ -36,7 +36,7 @@ setup(
         "Operating System :: OS Independent",
     ],
     python_requires=">=3.7",
-    py_modules=['mbctools'],
+    py_modules=['mbctools', 'mbc_shell', 'mbc_text', 'mbc_sequences', 'mbc_option1', 'mbc_option2', 'mbc_option3', 'mbc_option4', 'mbc_option_common'],
     entry_points={
         "console_scripts": [
             'mbctools = mbctools:main'
