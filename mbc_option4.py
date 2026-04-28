@@ -1,9 +1,474 @@
 from mbc_option_common import prepare_with_previous_params
 import datetime
+import csv
 import io
 import os
 import re
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
 import zipfile
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+
+BLAST_URL = "https://blast.ncbi.nlm.nih.gov/blast/Blast.cgi"
+INITIAL_WAIT = 15
+POLL_INTERVAL = 10
+MAX_WAIT = 3600
+MIAN_RANKS = ["kingdom", "phylum", "class", "order", "family", "genus", "species"]
+
+
+def _blast_post(params):
+    data = urllib.parse.urlencode(params).encode()
+    req = urllib.request.Request(BLAST_URL, data=data, method="POST")
+    req.add_header("Content-Type", "application/x-www-form-urlencoded")
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            return resp.read().decode("utf-8", errors="replace")
+    except (urllib.error.URLError, TimeoutError, OSError) as e:
+        raise RuntimeError(f"Network error while contacting NCBI BLAST (submit): {e}")
+
+
+def _blast_get(params):
+    qs = urllib.parse.urlencode(params)
+    url = f"{BLAST_URL}?{qs}"
+    try:
+        with urllib.request.urlopen(url, timeout=120) as resp:
+            return resp.read()
+    except (urllib.error.URLError, TimeoutError, OSError) as e:
+        raise RuntimeError(f"Network error while contacting NCBI BLAST (retrieve): {e}")
+
+
+def _blast_submit(core, fasta_text, db, evalue, hitlist_size, email, api_key):
+    params = {
+        "CMD": "Put",
+        "PROGRAM": "blastn",
+        "DATABASE": db,
+        "QUERY": fasta_text,
+        "EXPECT": str(evalue),
+        "HITLIST_SIZE": str(hitlist_size),
+        "FORMAT_TYPE": "XML",
+        "TOOL": "mbctools",
+    }
+    if email:
+        params["EMAIL"] = email
+    if api_key:
+        params["API_KEY"] = api_key
+
+    print(core.warningStyle + "\nSubmitting query to NCBI BLASTn..." + core.normalStyle)
+    try:
+        response = _blast_post(params)
+    except RuntimeError as e:
+        print(core.errorStyle + str(e) + core.normalStyle)
+        return None, None
+
+    rid = None
+    rtoe = None
+    for line in response.splitlines():
+        if line.strip().startswith("RID ="):
+            rid = line.split("=", 1)[1].strip()
+        elif line.strip().startswith("RTOE ="):
+            try:
+                rtoe = int(line.split("=", 1)[1].strip())
+            except ValueError:
+                rtoe = INITIAL_WAIT
+
+    if not rid:
+        print(core.errorStyle + "Unable to parse RID from NCBI response." + core.normalStyle)
+        return None, None
+
+    print(core.successStyle + f"RID: {rid} / RTOE: {rtoe if rtoe is not None else INITIAL_WAIT}s" + core.normalStyle)
+    return rid, (rtoe if rtoe is not None else INITIAL_WAIT)
+
+
+def _blast_wait_for_results(core, rid, rtoe):
+    wait = max(rtoe, INITIAL_WAIT)
+    print(core.warningStyle + f"Waiting {wait}s before first status check..." + core.normalStyle)
+    time.sleep(wait)
+
+    elapsed = wait
+    while elapsed < MAX_WAIT:
+        try:
+            raw = _blast_get(
+                {
+                    "CMD": "Get",
+                    "RID": rid,
+                    "FORMAT_TYPE": "XML",
+                    "FORMAT_OBJECT": "SearchInfo",
+                }
+            ).decode("utf-8", errors="replace")
+        except RuntimeError as e:
+            print(core.errorStyle + str(e) + core.normalStyle)
+            return False
+
+        if "Status=WAITING" in raw:
+            print(core.warningStyle + f"Status: WAITING (elapsed {elapsed}s)..." + core.normalStyle)
+            time.sleep(POLL_INTERVAL)
+            elapsed += POLL_INTERVAL
+        elif "Status=READY" in raw:
+            if "ThereAreHits=yes" in raw:
+                print(core.successStyle + "Status: READY - hits found" + core.normalStyle)
+            else:
+                print(core.warningStyle + "Status: READY - no hits found" + core.normalStyle)
+            return True
+        elif "Status=FAILED" in raw:
+            print(core.errorStyle + "BLAST search failed on NCBI side." + core.normalStyle)
+            return False
+        elif "Status=UNKNOWN" in raw:
+            print(core.errorStyle + "RID is unknown or expired (>24h)." + core.normalStyle)
+            return False
+        else:
+            print(core.warningStyle + f"Unexpected status response (elapsed {elapsed}s), retrying..." + core.normalStyle)
+            time.sleep(POLL_INTERVAL)
+            elapsed += POLL_INTERVAL
+
+    print(core.errorStyle + f"BLAST timed out after {MAX_WAIT}s." + core.normalStyle)
+    return False
+
+
+def _blast_retrieve(rid, fmt_type, extra=None):
+    params = {
+        "CMD": "Get",
+        "RID": rid,
+        "FORMAT_TYPE": fmt_type,
+        "HITLIST_SIZE": "500",
+    }
+    if fmt_type != "Text":
+        params["FORMAT_OBJECT"] = "Alignment"
+    if extra:
+        params.update(extra)
+    return _blast_get(params)
+
+
+def _extract_pre_block(text):
+    start_tag = "<PRE>"
+    end_tag = "</PRE>"
+    start = text.find(start_tag)
+    end = text.find(end_tag)
+    if start >= 0 and end > start:
+        return text[start + len(start_tag):end].strip()
+    return text.strip()
+
+
+def _download_blast_tabular(core, rid):
+    # NCBI sometimes returns a temporary HTML wrapper (<PRE>...</PRE>) before tabular content is ready.
+    attempt_params = [
+        {"ALIGNMENT_VIEW": "Tabular", "FORMAT_OBJECT": "Alignment"},
+        {"ALIGNMENT_VIEW": "Tabular"},
+    ]
+    for i in range(6):
+        params = attempt_params[i % len(attempt_params)]
+        try:
+            raw = _blast_get(
+                {
+                    "CMD": "Get",
+                    "RID": rid,
+                    "FORMAT_TYPE": "Text",
+                    "HITLIST_SIZE": "500",
+                    **params,
+                }
+            )
+        except RuntimeError as e:
+            print(core.errorStyle + str(e) + core.normalStyle)
+            return None
+
+        text = raw.decode("utf-8", errors="replace").strip()
+        text = _extract_pre_block(text)
+        if "# Fields:" in text:
+            return (text + "\n").encode("utf-8")
+
+        if i < 5:
+            print(core.warningStyle + "Tabular BLAST output not ready yet, retrying in 5s..." + core.normalStyle)
+            time.sleep(5)
+
+    print(core.errorStyle + "Unable to retrieve a valid BLAST tabular hit table from NCBI." + core.normalStyle)
+    return None
+
+
+def _run_live_blastn_and_save_hit_table(core):
+    fasta_path_obj = Path(core.metaXplorFasta)
+    if not fasta_path_obj.is_file():
+        print(
+            core.errorStyle
+            + f"Input FASTA file not found: {core.metaXplorFasta}. Please run step 4a first."
+            + core.normalStyle
+        )
+        return None
+    if fasta_path_obj.stat().st_size == 0:
+        print(
+            core.errorStyle
+            + f"Input FASTA file is empty: {core.metaXplorFasta}. Please run step 4a first."
+            + core.normalStyle
+        )
+        return None
+
+    fasta_text = fasta_path_obj.read_text(encoding="utf-8", errors="replace")
+    if not fasta_text.strip().startswith(">"):
+        print(core.errorStyle + "Input file does not look like FASTA (missing leading '>')." + core.normalStyle)
+        return None
+
+    db = "core_nt"
+    print(core.warningStyle + "Querying BLAST database: core_nt" + core.normalStyle)
+
+    evalue = None
+    while evalue is None:
+        raw = input(core.promptStyle + "BLAST e-value threshold" + core.normalStyle + " (default = 1e-5): ").strip()
+        if raw == "":
+            raw = "1e-5"
+        try:
+            evalue = float(raw)
+        except ValueError:
+            print(core.errorStyle + f"Invalid e-value: {raw}" + core.normalStyle)
+
+    max_hits = None
+    while max_hits is None:
+        raw = input(core.promptStyle + "Maximum hits per query" + core.normalStyle + " (default = 10): ").strip()
+        if raw == "":
+            raw = "10"
+        if raw.isnumeric() and int(raw) >= 1:
+            max_hits = int(raw)
+        else:
+            print(core.errorStyle + f"Invalid max hits: {raw}" + core.normalStyle)
+
+    email = input(core.promptStyle + "Email for NCBI BLAST" + core.normalStyle + " (optional, press Enter to skip): ").strip()
+
+    api_key = input(core.promptStyle + "NCBI API key (optional)" + core.normalStyle + " (press Enter to skip): ").strip()
+    if api_key == "":
+        api_key = os.environ.get("NCBI_API_KEY", "")
+
+    rid, rtoe = _blast_submit(core, fasta_text, db, evalue, max_hits, email, api_key)
+    if rid is None:
+        return None
+    if not _blast_wait_for_results(core, rid, rtoe):
+        return None
+
+    prefix = fasta_path_obj.stem + "_ncbi_blastn"
+    # out_xml = Path(core.current_dir) / "outputs" / f"{prefix}.xml"
+    out_tab = Path(core.current_dir) / "outputs" / f"{prefix}_hittable.txt"
+
+    # print(core.warningStyle + "Downloading XML results..." + core.normalStyle)
+    # try:
+    #     out_xml.write_bytes(_blast_retrieve(rid, "XML"))
+    # except RuntimeError as e:
+    #     print(core.errorStyle + str(e) + core.normalStyle)
+    #     print(core.warningStyle + "You can retry live BLAST or proceed with your own hit-table file." + core.normalStyle)
+    #     return None
+    # time.sleep(3)
+    print(core.warningStyle + "Downloading hit table (tabular) results..." + core.normalStyle)
+    tab_bytes = _download_blast_tabular(core, rid)
+    if tab_bytes is None:
+        print(core.warningStyle + "You can retry live BLAST or proceed with your own hit-table file." + core.normalStyle)
+        return None
+    out_tab.write_bytes(tab_bytes)
+
+    # print(core.successStyle + f"Saved BLAST XML to {out_xml}" + core.normalStyle)
+    print(core.successStyle + f"Saved BLAST hit table to {out_tab}" + core.normalStyle)
+    return str(out_tab)
+
+
+def _rotate_tsv(input_path, output_path):
+    with open(input_path, "r", encoding="utf-8") as infile:
+        rows = [line.rstrip("\n").split("\t") for line in infile if line.strip() != ""]
+
+    if len(rows) == 0:
+        raise ValueError("Input sequence-composition file is empty")
+
+    max_cols = max(len(row) for row in rows)
+    padded_rows = [row + [""] * (max_cols - len(row)) for row in rows]
+    rotated_rows = list(zip(*padded_rows))
+
+    with open(output_path, "w", encoding="utf-8", newline="") as outfile:
+        for row in rotated_rows:
+            outfile.write("\t".join(row).rstrip("\t") + "\n")
+
+
+def _parse_accession_from_sseqid(sseqid):
+    return sseqid.split(":", 1)[1] if ":" in sseqid else sseqid
+
+
+def _load_best_hits(assignments_path):
+    best = {}
+    first = {}
+    with open(assignments_path, "r", encoding="utf-8", newline="") as infile:
+        reader = csv.DictReader(infile, delimiter="\t")
+        for row in reader:
+            qseqid = (row.get("qseqid") or "").strip()
+            sseqid = (row.get("sseqid") or "").strip()
+            best_hit = (row.get("best_hit") or "").strip().upper()
+            if qseqid == "" or sseqid == "":
+                continue
+
+            accession = _parse_accession_from_sseqid(sseqid)
+            if qseqid not in first:
+                first[qseqid] = accession
+            if best_hit == "Y":
+                best[qseqid] = accession
+
+    merged = {}
+    for qseqid in first:
+        merged[qseqid] = best.get(qseqid, first[qseqid])
+    return merged
+
+
+def _fetch_taxid_from_accession(accession, email, api_key):
+    params = {
+        "db": "nuccore",
+        "id": accession,
+        "rettype": "gb",
+        "retmode": "xml",
+        "tool": "mbctools",
+    }
+    if email:
+        params["email"] = email
+    if api_key:
+        params["api_key"] = api_key
+
+    url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?" + urllib.parse.urlencode(params)
+    try:
+        with urllib.request.urlopen(url, timeout=20) as resp:
+            root = ET.fromstring(resp.read())
+        for feature in root.iter("GBFeature"):
+            key = feature.find("GBFeature_key")
+            if key is not None and key.text == "source":
+                for qualifier in feature.iter("GBQualifier"):
+                    qname = qualifier.find("GBQualifier_name")
+                    qvalue = qualifier.find("GBQualifier_value")
+                    if qname is not None and qname.text == "db_xref" and qvalue is not None and qvalue.text and "taxon:" in qvalue.text:
+                        return qvalue.text.split("taxon:", 1)[1].strip()
+    except Exception:
+        return None
+    return None
+
+
+def _fetch_lineage_from_taxid(taxid, email, api_key):
+    result = {rank: "" for rank in MIAN_RANKS}
+    params = {
+        "db": "taxonomy",
+        "id": taxid,
+        "retmode": "xml",
+        "tool": "mbctools",
+    }
+    if email:
+        params["email"] = email
+    if api_key:
+        params["api_key"] = api_key
+
+    url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?" + urllib.parse.urlencode(params)
+    try:
+        with urllib.request.urlopen(url, timeout=20) as resp:
+            root = ET.fromstring(resp.read())
+
+        rank_elem = root.find(".//Taxon/Rank")
+        current_rank = (rank_elem.text or "").lower() if rank_elem is not None else ""
+        org_elem = root.find(".//Taxon/ScientificName")
+        organism_name = org_elem.text or "" if org_elem is not None else ""
+
+        for taxon in root.iter("Taxon"):
+            rank_tag = taxon.find("Rank")
+            name_tag = taxon.find("ScientificName")
+            if rank_tag is None or name_tag is None:
+                continue
+            rank = (rank_tag.text or "").lower()
+            if rank == "superkingdom":
+                rank = "kingdom"
+            if rank in MIAN_RANKS:
+                result[rank] = name_tag.text or ""
+
+        if result["species"] == "" and current_rank == "species" and organism_name != "":
+            parts = organism_name.split()
+            result["species"] = parts[1] if len(parts) > 1 else organism_name
+    except Exception:
+        pass
+
+    return result
+
+
+def _build_mian_taxonomy(core, assignments_path, output_path, email, api_key):
+    best_hits = _load_best_hits(assignments_path)
+    cache = {}
+    sleep_between_requests = 0.11 if api_key else 0.34
+    total = len(best_hits)
+
+    if total == 0:
+        raise ValueError("No query hits found in assignments file")
+
+    print(core.warningStyle + f"Building MIAN taxonomy for {total} query sequences...")
+
+    with open(output_path, "w", encoding="utf-8", newline="") as outfile:
+        writer = csv.DictWriter(outfile, fieldnames=["OTU"] + MIAN_RANKS, delimiter="\t")
+        writer.writeheader()
+
+        for i, (qseqid, accession) in enumerate(best_hits.items(), start=1):
+            if accession in cache:
+                lineage = cache[accession]
+            else:
+                time.sleep(sleep_between_requests)
+                taxid = _fetch_taxid_from_accession(accession, email, api_key)
+                if taxid is None:
+                    lineage = {rank: "" for rank in MIAN_RANKS}
+                else:
+                    time.sleep(sleep_between_requests)
+                    lineage = _fetch_lineage_from_taxid(taxid, email, api_key)
+                cache[accession] = lineage
+
+            row = {"OTU": qseqid}
+            row.update({rank: lineage.get(rank, "") for rank in MIAN_RANKS})
+            writer.writerow(row)
+
+            # Print visible progress updates in terminals that do not render carriage-return rewrites.
+            if i == 1 or i == total or i % max(1, total // 20) == 0:
+                percent = int((i * 100) / total)
+                print(f"Taxonomy file building progress: {i}/{total} ({percent}%)", flush=True)
+
+    print("Taxonomy progress: done (100%)" + core.normalStyle, flush=True)
+
+
+def menu4e(core):
+    prepare_with_previous_params(core)
+
+    if not os.path.isfile(core.metaXplorSequenceComposition) or os.path.getsize(core.metaXplorSequenceComposition) == 0:
+        print(core.errorStyle + "\nFile " + core.metaXplorSequenceComposition + " is missing or empty. Please run step 4a" + core.normalStyle)
+        core.rerun(core.main_menu4)
+    if not os.path.isfile(core.metaXplorAssignments) or os.path.getsize(core.metaXplorAssignments) == 0:
+        print(core.errorStyle + "\nFile " + core.metaXplorAssignments + " is missing or empty. Please run step 4b" + core.normalStyle)
+        core.rerun(core.main_menu4)
+    if not os.path.isfile(core.metaXplorSamples) or os.path.getsize(core.metaXplorSamples) == 0:
+        print(core.errorStyle + "\nFile " + core.metaXplorSamples + " is missing or empty. Please run step 4c" + core.normalStyle)
+        core.rerun(core.main_menu4)
+
+    mian_sequences_path = str(Path(core.current_dir) / "tmp_files" / "mian_OTU.tsv")
+    mian_taxonomy_path = str(Path(core.current_dir) / "tmp_files" / "mian_taxonomy.tsv")
+
+    try:
+        _rotate_tsv(core.metaXplorSequenceComposition, mian_sequences_path)
+        print(core.successStyle + "File " + mian_sequences_path + " was successfully written" + core.normalStyle)
+    except Exception as e:
+        print(core.errorStyle + "Unable to rotate sequence file: " + str(e) + core.normalStyle)
+        core.rerun(core.main_menu4)
+
+    email = input(core.promptStyle + "Email for NCBI taxonomy queries" + core.normalStyle + " (optional, press Enter to skip): ").strip()
+    api_key = input(core.promptStyle + "NCBI API key (optional)" + core.normalStyle + " (press Enter to skip): ").strip()
+    if api_key == "":
+        api_key = os.environ.get("NCBI_API_KEY", "")
+
+    try:
+        _build_mian_taxonomy(core, core.metaXplorAssignments, mian_taxonomy_path, email, api_key)
+        print(core.successStyle + "File " + mian_taxonomy_path + " was successfully written" + core.normalStyle)
+    except Exception as e:
+        print(core.errorStyle + "Unable to build taxonomy file: " + str(e) + core.normalStyle)
+        core.rerun(core.main_menu4)
+
+    mian_zip_name = "mbctools_mian_export_" + core.date.strftime("%Y%m%d") + ".zip"
+    mian_zip_path = str(Path(core.current_dir) / mian_zip_name)
+    with zipfile.ZipFile(mian_zip_path, mode="w") as zf:
+        zf.write(mian_sequences_path, "mian_OTU.tsv")
+        zf.write(mian_taxonomy_path, "mian_taxonomy.tsv")
+        zf.write(core.metaXplorSamples, "mian_sample_metadata.tsv")
+    print(core.successStyle + "MIAN archive was successfully created as " + mian_zip_path + core.normalStyle)
+
+    core.rerun(core.main_menu4)
 
 
 def main_menu4(core):
@@ -21,14 +486,17 @@ def main_menu4(core):
         "\tConverts blastn results (obtained from blasting above-mentioned fasta file) from 'Hit table (text)'"
         "\n\t(format #7) into metaXplor format\n\n"
         "4c -> Build metaXplor-format sample metadata file from provided tabulated file\n\n"
-        "4d -> Compresses all metaXplor files into a final, ready to import, zip archive\n"
+        "4d -> Compresses all metaXplor files into a final, ready to import, zip archive\n\n"
+        "4e -> Generate MIAN data files from metaXplor files\n"
+        "\tRotates metaXplor_sequences.tsv into mian_sequences.tsv\n"
+        "\tBuilds mian_taxonomy.tsv from metaXplor_assignments.tsv\n"
         + core.normalStyle
     )
 
     core.rmenu = core.promptUser(
         "Please select an option among those listed above",
         None,
-        ["4a", "4b", "4c", "4d", "back", "home", "exit"],
+        ["4a", "4b", "4c", "4d", "4e", "back", "home", "exit"],
         1,
         core.main,
         "",
@@ -42,6 +510,8 @@ def main_menu4(core):
         menu4c(core)
     elif core.rmenu == "4d":
         menu4d(core, True)
+    elif core.rmenu == "4e":
+        menu4e(core)
 
 
 def menu4a(core):
@@ -74,7 +544,7 @@ def menu4a(core):
         print(
             "You may now run blastn on "
             + core.metaXplorFasta
-            + ", download all results as 'Hit table (text)' (format #7), then come back and launch step 4b"
+            + ", then launch step 4b to either run BLAST live from within mbctools or provide your own 'Hit table (text)' (format #7)"
             + core.normalStyle
         )
         print(
@@ -108,7 +578,30 @@ def menu4b(core):
         + ")"
     )
 
-    blastTextHitTable = core.promptUser("Enter path to blastn hit-table (text format #7)", None, ["back", "home", "exit"], 3, core.main_menu4, "")
+    generatedHitTable = None
+    runLiveBlast = core.promptUser(
+        "Do you want to run a guided remote NCBI BLASTn now? Enter yes or no",
+        "no",
+        ["yes", "no", "back", "home", "exit"],
+        1,
+        core.main_menu4,
+        "",
+    )
+    if runLiveBlast == "yes":
+        generatedHitTable = _run_live_blastn_and_save_hit_table(core)
+        if generatedHitTable is None:
+            print(core.errorStyle + "Could not generate hit table from live BLAST." + core.normalStyle)
+            menu4b(core)
+            return
+
+    blastTextHitTable = core.promptUser(
+        "Enter path to blastn hit-table (text format #7)",
+        generatedHitTable,
+        ["back", "home", "exit"],
+        3,
+        core.main_menu4,
+        "",
+    )
     with open(blastTextHitTable.strip(), "r") as infile:
         lines = re.sub(r"\s\s+", "\t", infile.read()).splitlines()
 

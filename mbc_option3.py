@@ -1,4 +1,25 @@
 from mbc_option_common import prepare_with_previous_params
+from mbc_sequences import concat_sequences_by_locus
+
+
+def concat_3(core, loci=None):
+    """Compiles sample sequences by locus in a unique file (option 3)."""
+    return concat_sequences_by_locus(
+        loci=loci,
+        lociPEs=core.lociPEs,
+        lociSEs=core.lociSEs,
+        samples=core.samples,
+        current_dir=core.current_dir,
+        fileSep=core.fileSep,
+        promptUser=core.promptUser,
+        main=core.main,
+        derep_several_fasta_files=core.derepSeveralFastaFiles,
+        warningStyle=core.warningStyle,
+        errorStyle=core.errorStyle,
+        successStyle=core.successStyle,
+        normalStyle=core.normalStyle,
+        promptStyle=core.promptStyle,
+    )
 
 
 def main_menu3(core):
@@ -21,12 +42,12 @@ def main_menu3(core):
         core.main,
         "",
     )
-    core.concat_3(core.lociPEs + list(set(core.lociSEs) - set(core.lociPEs)) if core.rmenu == "3a" else None)
+    concat_3(core, core.lociPEs + list(set(core.lociSEs) - set(core.lociPEs)) if core.rmenu == "3a" else None)
     main_menu3(core)
 
 
 def menu3(core):
     """Runs option 3."""
     prepare_with_previous_params(core)
-    core.concat_3()
+    concat_3(core)
     core.rerun(None)

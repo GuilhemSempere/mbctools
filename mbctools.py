@@ -585,24 +585,7 @@ def trim_2x():
 
 
 def concat_3(loci):
-        """Compiling of all sample sequences by locus in a unique file (option 3)
-        """
-        return concat_sequences_by_locus(
-                loci=loci,
-                lociPEs=lociPEs,
-                lociSEs=lociSEs,
-                samples=samples,
-                current_dir=current_dir,
-                fileSep=fileSep,
-                promptUser=promptUser,
-                main=main,
-                derep_several_fasta_files=derep_several_fasta_files,
-                warningStyle=warningStyle,
-                errorStyle=errorStyle,
-                successStyle=successStyle,
-                normalStyle=normalStyle,
-                promptStyle=promptStyle,
-        )
+        return mbc_option3.concat_3(sys.modules[__name__], loci)
 
 
 def prevent():
