@@ -41,7 +41,7 @@ def _blast_get(params):
         raise RuntimeError(f"Network error while contacting NCBI BLAST (retrieve): {e}")
 
 
-def _blast_submit(core, fasta_text, db, evalue, hitlist_size, email, api_key):
+def _blast_submit(core, fasta_text, db, evalue, hitlist_size, api_key):
     params = {
         "CMD": "Put",
         "PROGRAM": "blastn",
@@ -52,8 +52,6 @@ def _blast_submit(core, fasta_text, db, evalue, hitlist_size, email, api_key):
         "FORMAT_TYPE": "XML",
         "TOOL": "mbctools",
     }
-    if email:
-        params["EMAIL"] = email
     if api_key:
         params["API_KEY"] = api_key
 
@@ -232,13 +230,11 @@ def _run_live_blastn_and_save_hit_table(core):
         else:
             print(core.errorStyle + f"Invalid max hits: {raw}" + core.normalStyle)
 
-    email = input(core.promptStyle + "Email for NCBI BLAST" + core.normalStyle + " (optional, press Enter to skip): ").strip()
-
     api_key = input(core.promptStyle + "NCBI API key (optional)" + core.normalStyle + " (press Enter to skip): ").strip()
     if api_key == "":
         api_key = os.environ.get("NCBI_API_KEY", "")
 
-    rid, rtoe = _blast_submit(core, fasta_text, db, evalue, max_hits, email, api_key)
+    rid, rtoe = _blast_submit(core, fasta_text, db, evalue, max_hits, api_key)
     if rid is None:
         return None
     if not _blast_wait_for_results(core, rid, rtoe):
@@ -288,31 +284,67 @@ def _parse_accession_from_sseqid(sseqid):
     return sseqid.split(":", 1)[1] if ":" in sseqid else sseqid
 
 
-def _load_best_hits(assignments_path):
-    best = {}
-    first = {}
+def _load_all_hits(assignments_path):
+    """Returns {qseqid: [accession, ...]} keeping only hits that share the best bitscore."""
+    # First pass: collect all rows and track the best bitscore per query.
+    rows_by_query = {}
+    best_bitscore = {}
     with open(assignments_path, "r", encoding="utf-8", newline="") as infile:
         reader = csv.DictReader(infile, delimiter="\t")
         for row in reader:
             qseqid = (row.get("qseqid") or "").strip()
             sseqid = (row.get("sseqid") or "").strip()
-            best_hit = (row.get("best_hit") or "").strip().upper()
             if qseqid == "" or sseqid == "":
                 continue
-
+            try:
+                bitscore = float((row.get("bitscore") or "0").strip())
+            except ValueError:
+                bitscore = 0.0
             accession = _parse_accession_from_sseqid(sseqid)
-            if qseqid not in first:
-                first[qseqid] = accession
-            if best_hit == "Y":
-                best[qseqid] = accession
+            if qseqid not in rows_by_query:
+                rows_by_query[qseqid] = []
+                best_bitscore[qseqid] = bitscore
+            else:
+                if bitscore > best_bitscore[qseqid]:
+                    best_bitscore[qseqid] = bitscore
+            rows_by_query[qseqid].append((accession, bitscore))
 
-    merged = {}
-    for qseqid in first:
-        merged[qseqid] = best.get(qseqid, first[qseqid])
-    return merged
+    # Second pass: keep only accessions at the best bitscore level.
+    hits = {}
+    for qseqid, entries in rows_by_query.items():
+        top = best_bitscore[qseqid]
+        seen = []
+        for accession, bitscore in entries:
+            if bitscore >= top and accession not in seen:
+                seen.append(accession)
+        hits[qseqid] = seen
+    return hits
 
 
-def _fetch_taxid_from_accession(accession, email, api_key):
+def _compute_lca(lineages):
+    """Given a list of lineage dicts, return the LCA lineage.
+
+    Walks MIAN_RANKS from broad to specific. Once a rank diverges across hits,
+    that rank and all finer ranks are set to empty string.
+    """
+    result = {}
+    diverged = False
+    for rank in MIAN_RANKS:
+        if diverged:
+            result[rank] = ""
+            continue
+        non_empty = {lg.get(rank, "") for lg in lineages if lg.get(rank, "") != ""}
+        if len(non_empty) == 1:
+            result[rank] = non_empty.pop()
+        elif len(non_empty) == 0:
+            result[rank] = ""
+        else:
+            result[rank] = ""
+            diverged = True
+    return result
+
+
+def _fetch_taxid_from_accession(accession, api_key):
     params = {
         "db": "nuccore",
         "id": accession,
@@ -320,8 +352,6 @@ def _fetch_taxid_from_accession(accession, email, api_key):
         "retmode": "xml",
         "tool": "mbctools",
     }
-    if email:
-        params["email"] = email
     if api_key:
         params["api_key"] = api_key
 
@@ -342,7 +372,7 @@ def _fetch_taxid_from_accession(accession, email, api_key):
     return None
 
 
-def _fetch_lineage_from_taxid(taxid, email, api_key):
+def _fetch_lineage_from_taxid(taxid, api_key):
     result = {rank: "" for rank in MIAN_RANKS}
     params = {
         "db": "taxonomy",
@@ -350,8 +380,6 @@ def _fetch_lineage_from_taxid(taxid, email, api_key):
         "retmode": "xml",
         "tool": "mbctools",
     }
-    if email:
-        params["email"] = email
     if api_key:
         params["api_key"] = api_key
 
@@ -385,36 +413,40 @@ def _fetch_lineage_from_taxid(taxid, email, api_key):
     return result
 
 
-def _build_mian_taxonomy(core, assignments_path, output_path, email, api_key):
-    best_hits = _load_best_hits(assignments_path)
+def _build_mian_taxonomy(core, assignments_path, output_path, api_key):
+    all_hits = _load_all_hits(assignments_path)
     cache = {}
     sleep_between_requests = 0.11 if api_key else 0.34
-    total = len(best_hits)
+    total = len(all_hits)
 
     if total == 0:
         raise ValueError("No query hits found in assignments file")
 
-    print(core.warningStyle + f"Building MIAN taxonomy for {total} query sequences...")
+    print(core.warningStyle + f"Building MIAN taxonomy for {total} query sequences (LCA across top-scoring hits)...")
 
     with open(output_path, "w", encoding="utf-8", newline="") as outfile:
         writer = csv.DictWriter(outfile, fieldnames=["OTU"] + MIAN_RANKS, delimiter="\t")
         writer.writeheader()
 
-        for i, (qseqid, accession) in enumerate(best_hits.items(), start=1):
-            if accession in cache:
-                lineage = cache[accession]
-            else:
-                time.sleep(sleep_between_requests)
-                taxid = _fetch_taxid_from_accession(accession, email, api_key)
-                if taxid is None:
-                    lineage = {rank: "" for rank in MIAN_RANKS}
+        for i, (qseqid, accessions) in enumerate(all_hits.items(), start=1):
+            lineages = []
+            for accession in accessions:
+                if accession in cache:
+                    lineages.append(cache[accession])
                 else:
                     time.sleep(sleep_between_requests)
-                    lineage = _fetch_lineage_from_taxid(taxid, email, api_key)
-                cache[accession] = lineage
+                    taxid = _fetch_taxid_from_accession(accession, api_key)
+                    if taxid is None:
+                        lineage = {rank: "" for rank in MIAN_RANKS}
+                    else:
+                        time.sleep(sleep_between_requests)
+                        lineage = _fetch_lineage_from_taxid(taxid, api_key)
+                    cache[accession] = lineage
+                    lineages.append(lineage)
 
+            lca = _compute_lca(lineages)
             row = {"OTU": qseqid}
-            row.update({rank: lineage.get(rank, "") for rank in MIAN_RANKS})
+            row.update({rank: lca.get(rank, "") for rank in MIAN_RANKS})
             writer.writerow(row)
 
             # Print visible progress updates in terminals that do not render carriage-return rewrites.
@@ -448,13 +480,12 @@ def menu4e(core):
         print(core.errorStyle + "Unable to rotate sequence file: " + str(e) + core.normalStyle)
         core.rerun(core.main_menu4)
 
-    email = input(core.promptStyle + "Email for NCBI taxonomy queries" + core.normalStyle + " (optional, press Enter to skip): ").strip()
     api_key = input(core.promptStyle + "NCBI API key (optional)" + core.normalStyle + " (press Enter to skip): ").strip()
     if api_key == "":
         api_key = os.environ.get("NCBI_API_KEY", "")
 
     try:
-        _build_mian_taxonomy(core, core.metaXplorAssignments, mian_taxonomy_path, email, api_key)
+        _build_mian_taxonomy(core, core.metaXplorAssignments, mian_taxonomy_path, api_key)
         print(core.successStyle + "File " + mian_taxonomy_path + " was successfully written" + core.normalStyle)
     except Exception as e:
         print(core.errorStyle + "Unable to build taxonomy file: " + str(e) + core.normalStyle)
@@ -579,7 +610,7 @@ def menu4b(core):
     generatedHitTable = None
     runLiveBlast = core.promptUser(
         "Do you want to run a guided remote NCBI BLASTn now? Enter yes or no",
-        "no",
+        None,
         ["yes", "no", "back", "home", "exit"],
         1,
         core.main_menu4,
@@ -677,6 +708,10 @@ def menu4b(core):
                         .replace(", ", "\t")
                         .replace("query acc.ver", "qseqid")
                         .replace("subject acc.ver", "sseqid")
+                        .replace("bit score", "bitscore")
+                        .replace("% identity", "pident")
+                        .replace("q. start", "qstart")
+                        .replace("q. end", "qend")
                         + "\tassignment_method\tbest_hit\n"
                     )
             else:

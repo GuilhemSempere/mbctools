@@ -10,7 +10,7 @@ Metabarcoding NGS data in best conditions. It features the following MAIN MENU:
 
 3 -> GENERATION OF A UNIQUE SEQUENCE FILE FOR EACH LOCUS (comprising all samples' data)
 
-4 -> EXPORTING ANALYSIS RESULTS INTO metaXplor FORMAT
+4 -> EXPORTING ANALYSIS RESULTS INTO metaXplor and MIAN FORMATS
 </pre>
 
 #### mbctools reference:
@@ -90,11 +90,9 @@ python -m twine check dist/*
 ### 3. Upload package
 
 ```bash
-# optional dry run on TestPyPI
-python -m twine upload --repository testpypi dist/*
-
-# publish to PyPI
-python -m twine upload dist/*
+export TWINE_USERNAME=__token__
+export TWINE_PASSWORD='pypi-<YOUR_REAL_PYPI_TOKEN>'
+python -m twine upload --repository-url https://upload.pypi.org/legacy/ dist/* --verbose
 ```
 
 ### 4. Tag matching release version in git
@@ -117,6 +115,9 @@ python -m pip install mbctools
 
 # install a specific pre-release
 python -m pip install mbctools==2.0.0a0
+
+# or install the latest available pre-release
+python -m pip install --pre mbctools
 
 # run with either command
 mbctools

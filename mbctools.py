@@ -7,7 +7,7 @@ metabarcoding data in the best conditions. It assumes VSEARCH is pre-installed a
         merging, dereplication, clustering, chimera detection, affiliation of clusters to loci, sequence re-orientation
 2 -> PRIMER REMOVAL AND SELECTION OF MINIMUM SEQUENCE ABUNDANCE LEVELS ACCORDING TO USER-DEFINED THRESHOLDS
 3 -> GENERATION OF A UNIQUE SEQUENCE FILE FOR EACH LOCUS (comprising all samples' data)
-4 -> EXPORTING ANALYSIS RESULTS INTO metaXplor FORMAT
+4 -> EXPORTING ANALYSIS RESULTS INTO metaXplor and MIAN FORMATS
 
 Option 1 offers the following submenu:
 
@@ -47,7 +47,7 @@ Usage:
 __authors__ = "Christian Barnabé, Guilhem Sempéré"
 __contact__ = "guilhem.sempere@cirad.fr"
 __date__ = "2026-04-29"
-__version__ = "2.0.0a0"
+__version__ = "2.0.0a2"
 __copyright__ = "Copyright (c) 2024-2026 IRD, CIRAD"
 __license__ = "This software is licensed under the MIT License. The full license text is available at https://github.com/GuilhemSempere/mbctools/blob/main/LICENSE"
 
@@ -780,7 +780,7 @@ def main():
         print(  "1 -> INITIAL ANALYSIS (" + warningStyle + "mandatory" + normalStyle + "): read merging, sample-level dereplication, sequence clustering,\n\tchimera detection, affiliation of sequences to loci, and sequence re-orientation\n\n"
                         "2 -> PRIMER REMOVAL AND SELECTION OF MINIMUM SEQUENCE ABUNDANCE LEVELS ACCORDING TO USER-DEFINED THRESHOLDS\n\n"
                         "3 -> GENERATION OF A UNIQUE SEQUENCE FILE FOR EACH LOCUS (comprising all samples' data)\n\n"
-                        "4 -> EXPORTING ANALYSIS RESULTS INTO metaXplor FORMAT\n")
+                        "4 -> EXPORTING ANALYSIS RESULTS INTO metaXplor and MIAN FORMATS\n")
 
         global menu
         menu = promptUser("Please select an option among those listed above", None, ["1", "2", "3", "4", "exit"], 1, None, "")
