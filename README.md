@@ -66,3 +66,59 @@ Test data are available at https://doi.org/10.23708/W3TODJ and may be used as a 
 
 Once VSEARCH + mbctools are installed and accessible from the PATH, and .txt files pointing to the data have been edited, entering the "mbctools" command from a console is normally enough to launch the program.
 If you did not use pip to install mbctools and directly downloaded mbctools.py from the source code repository, may have have to try different commands like "./mbctools.py", "python mbctools.py" or "python3 mbctools.py"
+
+---
+
+## Releasing to PyPI
+
+Maintainers can use an isolated virtual environment for release operations. This does not affect end users.
+
+### 1. Prepare build tooling
+
+```bash
+python -m pip install --upgrade pip build twine setuptools wheel
+```
+
+### 2. Build source and wheel artifacts
+
+```bash
+rm -rf dist build *.egg-info
+python -m build
+python -m twine check dist/*
+```
+
+### 3. Upload package
+
+```bash
+# optional dry run on TestPyPI
+python -m twine upload --repository testpypi dist/*
+
+# publish to PyPI
+python -m twine upload dist/*
+```
+
+### 4. Tag matching release version in git
+
+```bash
+git tag -a v2.0.0a0 -m "mbctools 2.0.0a0"
+git push origin v2.0.0a0
+```
+
+### Versioning rules
+
+- Use PEP 440 versions directly in `mbctools.py` (for example: `2.0.0a0`, `2.0.0b1`, `2.0.0rc1`, `2.0.0`).
+- Keep the same version in git tags and PyPI uploads.
+
+### User installation and launch
+
+```bash
+# install latest stable
+python -m pip install mbctools
+
+# install a specific pre-release
+python -m pip install mbctools==2.0.0a0
+
+# run with either command
+mbctools
+python -m mbctools
+```

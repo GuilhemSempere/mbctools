@@ -30,7 +30,8 @@ Option 4 offers the following submenu:
 4a -> Generate sequence files
 4b -> Generate assignment file
 4c -> Build metaXplor-format sample metadata file from provided tabulated file
-4d -> Compresses all metaXplor files into a final, ready to import, zip archive
+4d -> Compress all metaXplor files into a final, ready to import, zip archive
+4e -> Generate MIAN data files from metaXplor files
 
 
 VSEARCH reference:
@@ -45,9 +46,9 @@ Usage:
 
 __authors__ = "Christian Barnabé, Guilhem Sempéré"
 __contact__ = "guilhem.sempere@cirad.fr"
-__date__ = "2025-10-30"
-__version__ = "1.1.1"
-__copyright__ = "Copyright (c) 2024-2025 IRD, CIRAD"
+__date__ = "2026-04-29"
+__version__ = "2.0.0a0"
+__copyright__ = "Copyright (c) 2024-2026 IRD, CIRAD"
 __license__ = "This software is licensed under the MIT License. The full license text is available at https://github.com/GuilhemSempere/mbctools/blob/main/LICENSE"
 
 import sys

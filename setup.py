@@ -10,7 +10,7 @@ import re
 from setuptools import setup, find_packages
 
 version = re.search(
-    '^__version__\s*=\s*"(.*)"',
+    r'^__version__\s*=\s*"(.*)"',
     open('mbctools.py').read(),
     re.M
 ).group(1)

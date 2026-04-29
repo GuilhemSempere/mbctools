@@ -486,10 +486,8 @@ def main_menu4(core):
         "\tConverts blastn results (obtained from blasting above-mentioned fasta file) from 'Hit table (text)'"
         "\n\t(format #7) into metaXplor format\n\n"
         "4c -> Build metaXplor-format sample metadata file from provided tabulated file\n\n"
-        "4d -> Compresses all metaXplor files into a final, ready to import, zip archive\n\n"
+        "4d -> Compress all metaXplor files into a final, ready to import, zip archive\n\n"
         "4e -> Generate MIAN data files from metaXplor files\n"
-        "\tRotates metaXplor_sequences.tsv into mian_sequences.tsv\n"
-        "\tBuilds mian_taxonomy.tsv from metaXplor_assignments.tsv\n"
         + core.normalStyle
     )
 
