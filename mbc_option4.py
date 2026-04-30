@@ -17,8 +17,25 @@ BLAST_URL = "https://blast.ncbi.nlm.nih.gov/blast/Blast.cgi"
 INITIAL_WAIT = 15
 POLL_INTERVAL = 10
 MAX_WAIT = 3600
-BATCH_SIZE = 20
+BATCH_SIZE = 50
 MIAN_RANKS = ["kingdom", "phylum", "class", "order", "family", "genus", "species"]
+NON_INFORMATIVE_TAXA = {
+    "uncultured",
+    "uncultured bacterium",
+    "uncultured archaeon",
+    "uncultured fungus",
+    "uncultured eukaryote",
+    "environmental samples",
+    "unclassified sequences",
+    "unclassified",
+    "unidentified",
+    "unknown",
+    "metagenome",
+}
+
+
+def _has_any_taxonomy_value(lineage):
+    return any((lineage.get(rank) or "").strip() != "" for rank in MIAN_RANKS)
 
 
 def _blast_post(params):
@@ -345,6 +362,46 @@ def _compute_lca(lineages):
     return result
 
 
+def _is_non_informative_taxon(name):
+    value = (name or "").strip().lower()
+    if value == "":
+        return True
+    if value in NON_INFORMATIVE_TAXA:
+        return True
+    return value.startswith("uncultured ") or value.startswith("unclassified ")
+
+
+def _is_informative_lineage(lineage):
+    for rank in MIAN_RANKS:
+        value = (lineage.get(rank) or "").strip()
+        if value != "" and not _is_non_informative_taxon(value):
+            return True
+    return False
+
+
+def _lineage_score(lineage):
+    informative = 0
+    non_empty = 0
+    for rank in MIAN_RANKS:
+        value = (lineage.get(rank) or "").strip()
+        if value != "":
+            non_empty += 1
+            if not _is_non_informative_taxon(value):
+                informative += 1
+    return (informative, non_empty)
+
+
+def _select_best_lineage(lineages):
+    best = {rank: "" for rank in MIAN_RANKS}
+    best_score = (-1, -1)
+    for lineage in lineages:
+        score = _lineage_score(lineage)
+        if score > best_score:
+            best = lineage
+            best_score = score
+    return best
+
+
 def _chunked(values, size):
     for i in range(0, len(values), size):
         yield values[i:i + size]
@@ -542,7 +599,7 @@ def _build_mian_taxonomy(core, assignments_path, output_path, api_key):
                 unique_accessions.append(accession)
 
     if len(unique_accessions) > 0:
-        print(core.warningStyle + f"Fetching NCBI taxids in batches of {BATCH_SIZE}..." + core.normalStyle, flush=True)
+        print(core.warningStyle + f"Fetching NCBI taxids for matched subjects..." + core.normalStyle, flush=True)
 
     accession_to_taxid = {}
     total_accession_batches = max(1, (len(unique_accessions) + BATCH_SIZE - 1) // BATCH_SIZE)
@@ -555,6 +612,18 @@ def _build_mian_taxonomy(core, assignments_path, output_path, api_key):
             + core.normalStyle,
             flush=True,
         )
+
+    missing_accessions = [a for a in unique_accessions if accession_to_taxid.get(a) in (None, "")]
+    if len(missing_accessions) > 0:
+        print(
+            core.warningStyle
+            + f"Retrying taxid retrieval for {len(missing_accessions)} accession(s) individually..."
+            + core.normalStyle,
+            flush=True,
+        )
+        for accession in missing_accessions:
+            time.sleep(sleep_between_requests)
+            accession_to_taxid[accession] = _fetch_taxid_from_accession(accession, api_key)
 
     unique_taxids = []
     for accession in unique_accessions:
@@ -576,6 +645,20 @@ def _build_mian_taxonomy(core, assignments_path, output_path, api_key):
             flush=True,
         )
 
+    missing_taxids = [
+        t for t in unique_taxids if not _has_any_taxonomy_value(taxid_to_lineage.get(t, {rank: "" for rank in MIAN_RANKS}))
+    ]
+    if len(missing_taxids) > 0:
+        print(
+            core.warningStyle
+            + f"Retrying lineage retrieval for {len(missing_taxids)} taxid(s) individually..."
+            + core.normalStyle,
+            flush=True,
+        )
+        for taxid in missing_taxids:
+            time.sleep(sleep_between_requests)
+            taxid_to_lineage[taxid] = _fetch_lineage_from_taxid(taxid, api_key)
+
     for accession in unique_accessions:
         taxid = accession_to_taxid.get(accession)
         if taxid is None:
@@ -590,7 +673,19 @@ def _build_mian_taxonomy(core, assignments_path, output_path, api_key):
         for i, (qseqid, accessions) in enumerate(all_hits.items(), start=1):
             lineages = [cache.get(accession, {rank: "" for rank in MIAN_RANKS}) for accession in accessions]
 
-            lca = _compute_lca(lineages)
+            # Prefer informative lineages to avoid empty LCA caused by generic
+            # placeholders such as "environmental samples" or "uncultured bacterium".
+            informative_lineages = [lineage for lineage in lineages if _is_informative_lineage(lineage)]
+            source_lineages = informative_lineages if len(informative_lineages) > 0 else lineages
+            lca = _compute_lca(source_lineages)
+
+            # If LCA still collapses to empty while at least one lineage has taxonomy,
+            # keep the most informative lineage instead of writing a fully empty row.
+            if not _has_any_taxonomy_value(lca):
+                non_empty_lineages = [lineage for lineage in source_lineages if _has_any_taxonomy_value(lineage)]
+                if len(non_empty_lineages) > 0:
+                    lca = _select_best_lineage(non_empty_lineages)
+
             row = {"OTU": qseqid}
             row.update({rank: lca.get(rank, "") for rank in MIAN_RANKS})
             writer.writerow(row)

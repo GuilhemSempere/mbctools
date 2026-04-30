@@ -71,36 +71,21 @@ If you did not use pip to install mbctools and directly downloaded mbctools.py f
 
 ## Releasing to PyPI
 
-Maintainers can use an isolated virtual environment for release operations. This does not affect end users.
-
-### 1. Prepare build tooling
-
-```bash
-python -m pip install --upgrade pip build twine setuptools wheel
-```
-
-### 2. Build source and wheel artifacts
+The release script performs all release steps with a single command:
+- reads version dynamically from `mbctools.py` (`__version__`)
+- builds and checks package artifacts
+- creates matching git tag (`v<version>`) if needed
+- pushes branch and tag to git remote
+- uploads to PyPI
 
 ```bash
-rm -rf dist build *.egg-info
-python -m build
-python -m twine check dist/*
-```
-
-### 3. Upload package
-
-```bash
+chmod +x scripts/release_pypi.sh
 export TWINE_USERNAME=__token__
 export TWINE_PASSWORD='pypi-<YOUR_REAL_PYPI_TOKEN>'
-python -m twine upload --repository-url https://upload.pypi.org/legacy/ dist/* --verbose
+./scripts/release_pypi.sh
 ```
 
-### 4. Tag matching release version in git
-
-```bash
-git tag -a v2.0.0a0 -m "mbctools 2.0.0a0"
-git push origin v2.0.0a0
-```
+The script enforces a clean git working tree and always performs git push before PyPI upload.
 
 ### Versioning rules
 

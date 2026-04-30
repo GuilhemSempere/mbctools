@@ -1,9 +1,10 @@
-# Use this file to generate and publish a PyPi package for each new release
+# Setup metadata for mbctools package builds.
 #
-# Procedure:
-#   - make sure __version__ variable is correctly set in mbctools.py, and that GitHub tag and release exist for the same version number
-#   - enter command "python3 setup.py sdist bdist_wheel" to build the package
-#   - enter command "twine upload dist/*", which will prompt for your PyPi token
+# Release command (single step):
+#   ./scripts/release_pypi.sh
+#
+# The release script reads __version__ dynamically from mbctools.py,
+# pushes git branch/tag first, then uploads package artifacts to PyPI.
 
 
 import re
