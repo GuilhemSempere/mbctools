@@ -18,6 +18,7 @@ INITIAL_WAIT = 15
 POLL_INTERVAL = 10
 MAX_WAIT = 3600
 BATCH_SIZE = 50
+MIN_VISIBLE_PROGRESS_PAUSE = 0.25
 MIAN_RANKS = ["kingdom", "phylum", "class", "order", "family", "genus", "species"]
 NON_INFORMATIVE_TAXA = {
     "uncultured",
@@ -203,6 +204,311 @@ def _download_blast_tabular(core, rid):
     return None
 
 
+def _extract_fasta_records(fasta_text):
+    records = []
+    current = []
+    for line in fasta_text.splitlines():
+        if line.startswith(">"):
+            if len(current) > 0:
+                records.append("\n".join(current))
+            current = [line]
+        elif len(current) > 0:
+            current.append(line)
+    if len(current) > 0:
+        records.append("\n".join(current))
+    return records
+
+
+def _normalize_field_name(name):
+    return re.sub(r"[^a-z0-9]", "", (name or "").lower())
+
+
+def _parse_hit_table_field_names(hit_table_lines):
+    for line in hit_table_lines:
+        if line.startswith("#") and "Fields:" in line:
+            after_colon = line.split(":", 1)[1]
+            return [field.strip() for field in after_colon.split(",")]
+    return []
+
+
+def _find_field_index(field_names, candidates):
+    normalized_names = [_normalize_field_name(name) for name in field_names]
+    normalized_candidates = {_normalize_field_name(candidate) for candidate in candidates}
+    for idx, field_name in enumerate(normalized_names):
+        if field_name in normalized_candidates:
+            return idx
+    return None
+
+
+def _reverse_complement_dna(seq):
+    return seq.translate(str.maketrans("ACGTRYKMSWBDHVNacgtrykmswbdhvn", "TGCAYRMKSWVHDBNtgcayrmkswvhdbn"))[::-1]
+
+
+def _extract_record_accession(record):
+    header = record.splitlines()[0][1:].strip()
+    first_token = header.split()[0]
+    if "|" in first_token:
+        split_pipe = [part for part in first_token.split("|") if part != ""]
+        for part in reversed(split_pipe):
+            if "." in part or re.match(r"^[A-Za-z_]+\d+", part):
+                first_token = part
+                break
+    return first_token
+
+
+def _fetch_full_fasta_records_from_accessions(accessions, entrez_db, api_key):
+    if len(accessions) == 0:
+        return {}
+
+    params = {
+        "db": entrez_db,
+        "id": ",".join(accessions),
+        "rettype": "fasta",
+        "retmode": "text",
+        "tool": "mbctools",
+    }
+    if api_key:
+        params["api_key"] = api_key
+
+    url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?" + urllib.parse.urlencode(params)
+    with urllib.request.urlopen(url, timeout=60) as resp:
+        text = resp.read().decode("utf-8", errors="replace")
+
+    records = _extract_fasta_records(text)
+    sequence_map = {}
+    for record in records:
+        accession = _extract_record_accession(record)
+        sequence = "".join(record.splitlines()[1:]).replace(" ", "").upper()
+        if accession != "" and sequence != "":
+            sequence_map[accession] = sequence
+            if "." in accession:
+                sequence_map[accession.split(".", 1)[0]] = sequence
+    return sequence_map
+
+
+def _download_subject_aligned_regions_fasta(core, hit_table_lines, db_prefix, output_path, api_key):
+    field_names = _parse_hit_table_field_names(hit_table_lines)
+    if len(field_names) == 0:
+        raise ValueError("Unable to parse '# Fields:' line from hit table")
+
+    subject_index = _find_field_index(field_names, ["subject acc.ver", "subject id", "sseqid"])
+    sstart_index = _find_field_index(field_names, ["s. start", "subject start", "sstart"])
+    send_index = _find_field_index(field_names, ["s. end", "subject end", "send"])
+
+    if None in [subject_index, sstart_index, send_index]:
+        raise ValueError(
+            "Hit table must contain subject accession and subject start/end coordinates to export aligned intervals"
+        )
+
+    distinct_regions = []
+    seen = set()
+    for line in hit_table_lines:
+        if line.startswith("#"):
+            continue
+        split_line = line.strip().split("\t")
+        if len(split_line) <= max(subject_index, sstart_index, send_index):
+            continue
+
+        accession = split_line[subject_index].strip()
+        if accession == "":
+            continue
+        try:
+            sstart = int(split_line[sstart_index].strip())
+            send = int(split_line[send_index].strip())
+        except ValueError:
+            continue
+
+        region_key = (accession, sstart, send)
+        if region_key in seen:
+            continue
+        seen.add(region_key)
+        distinct_regions.append(region_key)
+
+    if len(distinct_regions) == 0:
+        raise ValueError("No subject aligned regions found in hit table")
+
+    entrez_db = "nuccore" if db_prefix == "n" else "protein"
+    sleep_between_requests = 0.11 if api_key else 0.34
+    visible_pause = max(sleep_between_requests, MIN_VISIBLE_PROGRESS_PAUSE)
+    total_regions = len(distinct_regions)
+    unique_accessions = []
+    for accession, _, _ in distinct_regions:
+        if accession not in unique_accessions:
+            unique_accessions.append(accession)
+
+    accession_to_sequence = {}
+    total_accession_batches = max(1, (len(unique_accessions) + BATCH_SIZE - 1) // BATCH_SIZE)
+    full_seq_phase_start = time.time()
+    for batch_i, accession_batch in enumerate(_chunked(unique_accessions, BATCH_SIZE), start=1):
+        time.sleep(visible_pause)
+        try:
+            accession_to_sequence.update(_fetch_full_fasta_records_from_accessions(accession_batch, entrez_db, api_key))
+        except Exception:
+            pass
+
+        elapsed = int(time.time() - full_seq_phase_start)
+        print(
+            core.warningStyle
+            + f"Subject full-sequence batch retrieval progress: {batch_i}/{total_accession_batches} (elapsed {elapsed}s)"
+            + core.normalStyle,
+            flush=True,
+        )
+
+    missing_accessions = [accession for accession in unique_accessions if accession_to_sequence.get(accession) in [None, ""]]
+    if len(missing_accessions) > 0:
+        print(
+            core.warningStyle
+            + f"Retrying missing subject full sequences individually: {len(missing_accessions)} accession(s)"
+            + core.normalStyle,
+            flush=True,
+        )
+    for accession in missing_accessions:
+        time.sleep(visible_pause)
+        try:
+            accession_to_sequence.update(_fetch_full_fasta_records_from_accessions([accession], entrez_db, api_key))
+        except Exception:
+            pass
+
+    accession_to_taxid = {}
+    if db_prefix == "n":
+        if len(unique_accessions) > 0:
+            total_taxid_batches = max(1, (len(unique_accessions) + BATCH_SIZE - 1) // BATCH_SIZE)
+            taxid_phase_start = time.time()
+            for batch_i, accession_batch in enumerate(_chunked(unique_accessions, BATCH_SIZE), start=1):
+                time.sleep(visible_pause)
+                accession_to_taxid.update(_fetch_taxids_from_accessions(accession_batch, api_key))
+                elapsed = int(time.time() - taxid_phase_start)
+                print(
+                    core.warningStyle
+                    + f"Subject taxid batch retrieval progress: {batch_i}/{total_taxid_batches} (elapsed {elapsed}s)"
+                    + core.normalStyle,
+                    flush=True,
+                )
+
+            missing_taxid_accessions = [accession for accession in unique_accessions if accession_to_taxid.get(accession) in [None, ""]]
+            if len(missing_taxid_accessions) > 0:
+                print(
+                    core.warningStyle
+                    + f"Retrying missing subject taxids individually: {len(missing_taxid_accessions)} accession(s)"
+                    + core.normalStyle,
+                    flush=True,
+                )
+            for accession in missing_taxid_accessions:
+                time.sleep(visible_pause)
+                accession_to_taxid[accession] = _fetch_taxid_from_accession(accession, api_key)
+
+    unique_taxids = []
+    for taxid in accession_to_taxid.values():
+        if taxid not in [None, ""] and taxid not in unique_taxids:
+            unique_taxids.append(taxid)
+
+    taxid_to_lineage = {}
+    if len(unique_taxids) > 0:
+        total_lineage_batches = max(1, (len(unique_taxids) + BATCH_SIZE - 1) // BATCH_SIZE)
+        lineage_phase_start = time.time()
+        for batch_i, taxid_batch in enumerate(_chunked(unique_taxids, BATCH_SIZE), start=1):
+            time.sleep(visible_pause)
+            taxid_to_lineage.update(_fetch_lineages_from_taxids(taxid_batch, api_key))
+            elapsed = int(time.time() - lineage_phase_start)
+            print(
+                core.warningStyle
+                + f"Subject lineage batch retrieval progress: {batch_i}/{total_lineage_batches} (elapsed {elapsed}s)"
+                + core.normalStyle,
+                flush=True,
+            )
+
+        missing_lineage_taxids = [
+            taxid for taxid in unique_taxids if not _has_any_taxonomy_value(taxid_to_lineage.get(taxid, {rank: "" for rank in MIAN_RANKS}))
+        ]
+        if len(missing_lineage_taxids) > 0:
+            print(
+                core.warningStyle
+                + f"Retrying missing subject lineages individually: {len(missing_lineage_taxids)} taxid(s)"
+                + core.normalStyle,
+                flush=True,
+            )
+        for taxid in missing_lineage_taxids:
+            time.sleep(visible_pause)
+            taxid_to_lineage[taxid] = _fetch_lineage_from_taxid(taxid, api_key)
+
+    accession_candidates = {}
+    for region_i, (accession, sstart, send) in enumerate(distinct_regions, start=1):
+        full_sequence = accession_to_sequence.get(accession)
+        if full_sequence in [None, ""] and "." in accession:
+            full_sequence = accession_to_sequence.get(accession.split(".", 1)[0])
+
+        if full_sequence not in [None, ""]:
+            seq_start = min(sstart, send)
+            seq_stop = max(sstart, send)
+            if seq_start >= 1 and seq_stop <= len(full_sequence):
+                seq = full_sequence[seq_start - 1:seq_stop]
+                if db_prefix == "n" and sstart > send:
+                    seq = _reverse_complement_dna(seq)
+                seq = seq.upper()
+            else:
+                seq = ""
+            if seq != "":
+                taxid = accession_to_taxid.get(accession)
+                lineage = taxid_to_lineage.get(taxid, {rank: "" for rank in MIAN_RANKS})
+
+                # Skip sequences with no class-level (or finer) resolution: these
+                # are poorly characterised submissions that cannot be separated by
+                # marker in downstream analyses.
+                if (lineage.get("class") or "").strip() == "":
+                    continue
+
+                accession_entries = accession_candidates.setdefault(accession, {})
+                if seq not in accession_entries:
+                    accession_entries[seq] = {
+                        "seq_id": accession,
+                        "sequence": seq,
+                        "lineage": lineage,
+                        "accession": accession,
+                        "sstart": sstart,
+                        "send": send,
+                        "duplicates": 1,
+                        "first_region_index": region_i,
+                    }
+                else:
+                    accession_entries[seq]["duplicates"] += 1
+
+    seq_entries = []
+    seq_to_index = {}
+    representative_entries = []
+    for accession_entries in accession_candidates.values():
+        representative_entries.append(max(accession_entries.values(), key=_subject_interval_representative_key))
+
+    representative_entries.sort(key=lambda entry: entry["first_region_index"])
+    for entry in representative_entries:
+        seq = entry["sequence"]
+        if seq not in seq_to_index:
+            seq_to_index[seq] = len(seq_entries)
+            seq_entries.append(entry)
+        else:
+            seq_entries[seq_to_index[seq]]["duplicates"] += entry["duplicates"]
+
+    taxonomy_output_path = str(Path(output_path).with_name(Path(output_path).stem + "_taxonomy.tsv"))
+    with open(output_path, "w", encoding="utf-8") as outfile:
+        for entry in seq_entries:
+            header = (
+                f">{entry['seq_id']} accession={entry['accession']} "
+                f"sstart={entry['sstart']} send={entry['send']} duplicates={entry['duplicates']}"
+            )
+            outfile.write(header + "\n")
+            outfile.write(entry["sequence"] + "\n")
+
+    with open(taxonomy_output_path, "w", encoding="utf-8", newline="") as tsvfile:
+        writer = csv.DictWriter(tsvfile, fieldnames=["Accession"] + MIAN_RANKS, delimiter="\t")
+        writer.writeheader()
+        for entry in seq_entries:
+            lineage = entry.get("lineage", {rank: "" for rank in MIAN_RANKS})
+            row = {"Accession": entry["seq_id"]}
+            row.update({rank: lineage.get(rank, "") for rank in MIAN_RANKS})
+            writer.writerow(row)
+
+    return len(distinct_regions), len(seq_entries), taxonomy_output_path
+
+
 def _run_live_blastn_and_save_hit_table(core):
     fasta_path_obj = Path(core.metaXplorFasta)
     if not fasta_path_obj.is_file():
@@ -211,19 +517,19 @@ def _run_live_blastn_and_save_hit_table(core):
             + f"Input FASTA file not found: {core.metaXplorFasta}. Please run step 4a first."
             + core.normalStyle
         )
-        return None
+        return None, None
     if fasta_path_obj.stat().st_size == 0:
         print(
             core.errorStyle
             + f"Input FASTA file is empty: {core.metaXplorFasta}. Please run step 4a first."
             + core.normalStyle
         )
-        return None
+        return None, None
 
     fasta_text = fasta_path_obj.read_text(encoding="utf-8", errors="replace")
     if not fasta_text.strip().startswith(">"):
         print(core.errorStyle + "Input file does not look like FASTA (missing leading '>')." + core.normalStyle)
-        return None
+        return None, None
 
     db = "core_nt"
     print(core.warningStyle + "Querying BLAST database: core_nt" + core.normalStyle)
@@ -254,9 +560,9 @@ def _run_live_blastn_and_save_hit_table(core):
 
     rid, rtoe = _blast_submit(core, fasta_text, db, evalue, max_hits, api_key)
     if rid is None:
-        return None
+        return None, None
     if not _blast_wait_for_results(core, rid, rtoe):
-        return None
+        return None, None
 
     prefix = fasta_path_obj.stem + "_ncbi_blastn"
     # out_xml = Path(core.current_dir) / "outputs" / f"{prefix}.xml"
@@ -274,12 +580,12 @@ def _run_live_blastn_and_save_hit_table(core):
     tab_bytes = _download_blast_tabular(core, rid)
     if tab_bytes is None:
         print(core.warningStyle + "You can retry live BLAST or proceed with your own hit-table file." + core.normalStyle)
-        return None
+        return None, None
     out_tab.write_bytes(tab_bytes)
 
     # print(core.successStyle + f"Saved BLAST XML to {out_xml}" + core.normalStyle)
     print(core.successStyle + f"Saved BLAST hit table to {out_tab}" + core.normalStyle)
-    return str(out_tab)
+    return str(out_tab), max_hits
 
 
 def _rotate_tsv(input_path, output_path):
@@ -407,6 +713,16 @@ def _chunked(values, size):
         yield values[i:i + size]
 
 
+def _subject_interval_representative_key(entry):
+    return (
+        entry["duplicates"],
+        len(entry["sequence"]),
+        -min(entry["sstart"], entry["send"]),
+        -max(entry["sstart"], entry["send"]),
+        -entry["first_region_index"],
+    )
+
+
 def _fetch_taxid_from_accession(accession, api_key):
     params = {
         "db": "nuccore",
@@ -500,25 +816,11 @@ def _fetch_lineage_from_taxid(taxid, api_key):
         with urllib.request.urlopen(url, timeout=20) as resp:
             root = ET.fromstring(resp.read())
 
-        rank_elem = root.find(".//Taxon/Rank")
-        current_rank = (rank_elem.text or "").lower() if rank_elem is not None else ""
-        org_elem = root.find(".//Taxon/ScientificName")
-        organism_name = org_elem.text or "" if org_elem is not None else ""
-
-        for taxon in root.iter("Taxon"):
-            rank_tag = taxon.find("Rank")
-            name_tag = taxon.find("ScientificName")
-            if rank_tag is None or name_tag is None:
-                continue
-            rank = (rank_tag.text or "").lower()
-            if rank == "superkingdom":
-                rank = "kingdom"
-            if rank in MIAN_RANKS:
-                result[rank] = name_tag.text or ""
-
-        if result["species"] == "" and current_rank == "species" and organism_name != "":
-            parts = organism_name.split()
-            result["species"] = parts[1] if len(parts) > 1 else organism_name
+        # Parse only the top-level returned taxon. Iterating nested LineageEx
+        # taxa can overwrite complete lineage with sparse single-rank entries.
+        top_taxon = root.find("Taxon")
+        if top_taxon is not None:
+            result = _extract_lineage_from_taxon(top_taxon)
     except Exception:
         pass
 
@@ -534,13 +836,13 @@ def _extract_lineage_from_taxon(taxon):
     if lineage_ex is not None:
         for lineage_taxon in lineage_ex.findall("Taxon"):
             rank = (lineage_taxon.findtext("Rank") or "").lower()
-            if rank == "superkingdom":
+            if rank in ("superkingdom", "domain"):
                 rank = "kingdom"
             if rank in MIAN_RANKS:
                 result[rank] = lineage_taxon.findtext("ScientificName") or ""
 
     rank = current_rank
-    if rank == "superkingdom":
+    if rank in ("superkingdom", "domain"):
         rank = "kingdom"
     if rank in MIAN_RANKS:
         result[rank] = organism_name
@@ -571,7 +873,9 @@ def _fetch_lineages_from_taxids(taxids, api_key):
         with urllib.request.urlopen(url, timeout=60) as resp:
             root = ET.fromstring(resp.read())
 
-        for taxon in root.findall(".//Taxon"):
+        # Only process top-level returned taxa. Nested LineageEx taxa must not
+        # overwrite full lineages with sparse single-rank entries.
+        for taxon in root.findall("Taxon"):
             taxid = (taxon.findtext("TaxId") or "").strip()
             if taxid != "":
                 lineage_map[taxid] = _extract_lineage_from_taxon(taxon)
@@ -849,6 +1153,7 @@ def menu4b(core):
     )
 
     generatedHitTable = None
+    liveBlastMaxHits = None
     runLiveBlast = core.promptUser(
         "Do you want to run a guided remote NCBI BLASTn now? Enter yes or no",
         None,
@@ -858,7 +1163,7 @@ def menu4b(core):
         "",
     )
     if runLiveBlast == "yes":
-        generatedHitTable = _run_live_blastn_and_save_hit_table(core)
+        generatedHitTable, liveBlastMaxHits = _run_live_blastn_and_save_hit_table(core)
         if generatedHitTable is None:
             print(core.errorStyle + "Could not generate hit table from live BLAST." + core.normalStyle)
             menu4b(core)
@@ -883,14 +1188,22 @@ def menu4b(core):
     previousQseqId = None
     blastType = lines[0].split(" ")[1].strip()
 
+    defaultMaxHits = str(liveBlastMaxHits) if liveBlastMaxHits is not None else "5"
     maxHits = None
     print()
     while maxHits is None or not maxHits.isnumeric() or int(maxHits) < 1:
         if maxHits is not None:
             print(core.errorStyle + "\n--> WRONG INPUT: " + maxHits + core.normalStyle)
-        maxHits = input(core.promptStyle + "Enter maximum number of retained hits per query." + core.normalStyle + " Default is 5: ")
+        maxHits = input(
+            core.promptStyle
+            + "Enter maximum number of retained hits per query."
+            + core.normalStyle
+            + " Default is "
+            + defaultMaxHits
+            + ": "
+        )
         if maxHits == "":
-            maxHits = "5"
+            maxHits = defaultMaxHits
     maxHits = int(maxHits)
 
     print()
@@ -990,6 +1303,48 @@ def menu4b(core):
             i += 1
 
     print(core.successStyle + "File " + core.metaXplorAssignments + " was successfully written" + core.normalStyle)
+
+    exportMatchedSubjectFasta = core.promptUser(
+        "Also export FASTA for aligned subject intervals (sstart/send) from this hit-table? Enter yes or no",
+        None,
+        ["yes", "no"],
+        1,
+        None,
+        "",
+    )
+    if exportMatchedSubjectFasta == "yes":
+        api_key = input(core.promptStyle + "NCBI API key (optional)" + core.normalStyle + " (press Enter to skip): ").strip()
+        if api_key == "":
+            api_key = os.environ.get("NCBI_API_KEY", "")
+
+        output_fasta_path = str(Path(core.current_dir) / "outputs" / (Path(blastTextHitTable).stem + "_subject_intervals.fasta"))
+        try:
+            requested, retrieved, output_taxonomy_path = _download_subject_aligned_regions_fasta(
+                core, lines, database, output_fasta_path, api_key
+            )
+            if retrieved == 0:
+                print(core.warningStyle + "No aligned subject interval sequences could be retrieved from NCBI." + core.normalStyle)
+            elif retrieved < requested:
+                print(
+                    core.warningStyle
+                    + f"Retrieved {retrieved}/{requested} deduplicated aligned subject interval sequences into "
+                    + output_fasta_path
+                    + " and wrote taxonomy into "
+                    + output_taxonomy_path
+                    + core.normalStyle
+                )
+            else:
+                print(
+                    core.successStyle
+                    + f"Retrieved {retrieved} deduplicated aligned subject interval sequences into "
+                    + output_fasta_path
+                    + " and wrote taxonomy into "
+                    + output_taxonomy_path
+                    + core.normalStyle
+                )
+        except Exception as e:
+            print(core.errorStyle + "Unable to export subject FASTA: " + str(e) + core.normalStyle)
+
     menu4d(core, False)
 
 
