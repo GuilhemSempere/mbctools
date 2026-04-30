@@ -1,9 +1,0 @@
-mbc_option1
-mbc_option2
-mbc_option3
-mbc_option4
-mbc_option_common
-mbc_sequences
-mbc_shell
-mbc_text
-mbctools
