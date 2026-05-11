@@ -1,7 +1,6 @@
 from mbc_option_common import prepare_with_previous_params
 import datetime
 import csv
-import io
 import os
 import re
 import time
@@ -37,6 +36,8 @@ NON_INFORMATIVE_TAXA = {
 }
 DEFAULT_MAX_WORKERS = 3
 API_KEY_MAX_WORKERS = 10
+GALAXY_REFERENCE_FASTA_NAME = "metaXplor_sequences_ncbi_blastn_hittable_subject_intervals.fasta"
+GALAXY_REFERENCE_TAXONOMY_NAME = "metaXplor_sequences_ncbi_blastn_hittable_subject_intervals_taxonomy.tsv"
 
 
 def _has_any_taxonomy_value(lineage):
@@ -619,6 +620,51 @@ def _run_live_blastn_and_save_hit_table(core):
     return str(out_tab), max_hits
 
 
+def _infer_db_prefix_from_hit_table_lines(hit_table_lines):
+    nucleotide_databases = {
+        "nt",
+        "core_nt",
+        "refseq_rna",
+        "refseq_genomic",
+        "est",
+        "gss",
+        "pat",
+        "sts",
+        "htgs",
+        "env_nt",
+        "16S_rRNA",
+        "tsa_nr",
+        "wgs",
+        "mitogenomes",
+        "plastid_genomes",
+    }
+    protein_databases = {
+        "nr",
+        "refseq_protein",
+        "swissprot",
+        "pdb",
+        "env_nr",
+        "pat_protein",
+        "uniprotkb",
+        "cdd",
+    }
+
+    for line in hit_table_lines:
+        if line.startswith("#") and "Database:" in line:
+            try:
+                database = line.split(" ")[2]
+            except Exception as e:
+                raise ValueError(f"Unable to parse accession type prefix in '{line}': {e}")
+
+            if database in nucleotide_databases:
+                return "n"
+            if database in protein_databases:
+                return "p"
+            raise ValueError(f"Unsupported Database type: {database}")
+
+    raise ValueError("Unable to determine accession type prefix (missing '# Database:' line)")
+
+
 def _rotate_tsv(input_path, output_path):
     with open(input_path, "r", encoding="utf-8") as infile:
         rows = [line.rstrip("\n").split("\t") for line in infile if line.strip() != ""]
@@ -640,10 +686,8 @@ def _parse_accession_from_sseqid(sseqid):
 
 
 def _load_all_hits(assignments_path):
-    """Returns {qseqid: [accession, ...]} keeping only hits that share the best bitscore."""
-    # First pass: collect all rows and track the best bitscore per query.
+    """Returns {qseqid: [(accession, bitscore), ...]} with unique accessions and their best bitscore."""
     rows_by_query = {}
-    best_bitscore = {}
     with open(assignments_path, "r", encoding="utf-8", newline="") as infile:
         reader = csv.DictReader(infile, delimiter="\t")
         for row in reader:
@@ -657,22 +701,21 @@ def _load_all_hits(assignments_path):
                 bitscore = 0.0
             accession = _parse_accession_from_sseqid(sseqid)
             if qseqid not in rows_by_query:
-                rows_by_query[qseqid] = []
-                best_bitscore[qseqid] = bitscore
-            else:
-                if bitscore > best_bitscore[qseqid]:
-                    best_bitscore[qseqid] = bitscore
-            rows_by_query[qseqid].append((accession, bitscore))
+                rows_by_query[qseqid] = {}
+            previous = rows_by_query[qseqid].get(accession)
+            if previous is None or bitscore > previous:
+                rows_by_query[qseqid][accession] = bitscore
 
-    # Second pass: keep only accessions at the best bitscore level.
     hits = {}
-    for qseqid, entries in rows_by_query.items():
-        top = best_bitscore[qseqid]
-        seen = []
+    for qseqid, accession_to_bitscore in rows_by_query.items():
+        entries = sorted(accession_to_bitscore.items(), key=lambda x: x[1], reverse=True)
+        seen = set()
+        ordered_entries = []
         for accession, bitscore in entries:
-            if bitscore >= top and accession not in seen:
-                seen.append(accession)
-        hits[qseqid] = seen
+            if accession not in seen:
+                seen.add(accession)
+                ordered_entries.append((accession, bitscore))
+        hits[qseqid] = ordered_entries
     return hits
 
 
@@ -910,7 +953,20 @@ def _fetch_taxid_from_accession(accession, api_key):
     if r.get(accession):
         return r[accession]
     r = _efetch_taxids_batch([accession], api_key)
-    return r.get(accession)
+    if r.get(accession):
+        return r[accession]
+
+    # Some records resolve only without accession version suffix (e.g. AB123456.1 -> AB123456)
+    if "." in accession:
+        bare_accession = accession.split(".", 1)[0]
+        r = _esummary_taxids_batch([bare_accession], api_key)
+        if r.get(bare_accession):
+            return r[bare_accession]
+        r = _efetch_taxids_batch([bare_accession], api_key)
+        if r.get(bare_accession):
+            return r[bare_accession]
+
+    return None
 
 
 def _fetch_taxids_for_batch(accessions, api_key, limiter):
@@ -1074,8 +1130,8 @@ def _build_mian_taxonomy(core, assignments_path, output_path, api_key):
     print(core.warningStyle + f"Building MIAN taxonomy for {total} query sequences (LCA across top-scoring hits)..." + core.normalStyle, flush=True)
 
     unique_accessions = []
-    for accessions in all_hits.values():
-        for accession in accessions:
+    for accessions_with_score in all_hits.values():
+        for accession, _ in accessions_with_score:
             if accession not in cache and accession not in unique_accessions:
                 unique_accessions.append(accession)
 
@@ -1165,17 +1221,34 @@ def _build_mian_taxonomy(core, assignments_path, output_path, api_key):
         writer = csv.DictWriter(outfile, fieldnames=["OTU"] + MIAN_RANKS, delimiter="\t")
         writer.writeheader()
 
-        for i, (qseqid, accessions) in enumerate(all_hits.items(), start=1):
-            lineages = [cache.get(accession, {rank: "" for rank in MIAN_RANKS}) for accession in accessions]
+        for i, (qseqid, accessions_with_score) in enumerate(all_hits.items(), start=1):
+            bitscore_levels = sorted({bitscore for _, bitscore in accessions_with_score}, reverse=True)
+            selected_accessions = []
+            lca = {rank: "" for rank in MIAN_RANKS}
 
-            informative_lineages = [lineage for lineage in lineages if _is_informative_lineage(lineage)]
-            source_lineages      = informative_lineages if len(informative_lineages) > 0 else lineages
-            lca                  = _compute_lca(source_lineages)
+            for level in bitscore_levels:
+                for accession, bitscore in accessions_with_score:
+                    if bitscore == level and accession not in selected_accessions:
+                        selected_accessions.append(accession)
+
+                lineages = [cache.get(accession, {rank: "" for rank in MIAN_RANKS}) for accession in selected_accessions]
+                informative_lineages = [lineage for lineage in lineages if _is_informative_lineage(lineage)]
+                source_lineages = informative_lineages if len(informative_lineages) > 0 else lineages
+                lca = _compute_lca(source_lineages)
+
+                if _has_any_taxonomy_value(lca):
+                    break
 
             if not _has_any_taxonomy_value(lca):
-                non_empty_lineages = [lineage for lineage in source_lineages if _has_any_taxonomy_value(lineage)]
+                all_lineages = [cache.get(accession, {rank: "" for rank in MIAN_RANKS}) for accession, _ in accessions_with_score]
+                non_empty_lineages = [lineage for lineage in all_lineages if _has_any_taxonomy_value(lineage)]
                 if len(non_empty_lineages) > 0:
                     lca = _select_best_lineage(non_empty_lineages)
+                else:
+                    lca = {rank: "" for rank in MIAN_RANKS}
+                    lca["kingdom"] = "unclassified"
+                    lca["phylum"] = "unclassified"
+                    lca["class"] = "unclassified"
 
             row = {"OTU": qseqid}
             row.update({rank: lca.get(rank, "") for rank in MIAN_RANKS})
@@ -1222,13 +1295,165 @@ def menu4e(core):
         print(core.errorStyle + "Unable to build taxonomy file: " + str(e) + core.normalStyle)
         core.rerun(core.main_menu4)
 
-    mian_zip_name = "mbctools_mian_export_" + core.date.strftime("%Y%m%d") + ".zip"
-    mian_zip_path = str(Path(core.current_dir) / mian_zip_name)
-    with zipfile.ZipFile(mian_zip_path, mode="w") as zf:
-        zf.write(mian_sequences_path, "mian_OTU.tsv")
-        zf.write(mian_taxonomy_path, "mian_taxonomy.tsv")
-        zf.write(core.metaXplorSamples, "mian_sample_metadata.tsv")
-    print(core.successStyle + "MIAN archive was successfully created as " + mian_zip_path + core.normalStyle)
+    _write_mian_archive(core)
+
+    core.rerun(core.main_menu4)
+
+
+def _create_archive(core, archive_path, entries, label):
+    with zipfile.ZipFile(archive_path, mode="w") as zf:
+        for source_path, target_name in entries:
+            zf.write(source_path, target_name)
+    print(core.successStyle + label + " archive was successfully created as " + archive_path + core.normalStyle)
+
+
+def _write_metaxplor_archive(core):
+    date_tag = core.date.strftime("%Y%m%d")
+    metaxplor_entries = [
+        (core.metaXplorSamples, "sample_metadata.tsv"),
+        (core.metaXplorAssignments, "otu_assignments.tsv"),
+        (core.metaXplorFasta, "otu_sequences.fasta"),
+        (core.metaXplorSequenceComposition, "otu_abundance_by_sample.tsv"),
+    ]
+    missing_metaxplor = [source for source, _ in metaxplor_entries if not os.path.isfile(source) or os.path.getsize(source) == 0]
+    if len(missing_metaxplor) > 0:
+        print(
+            core.errorStyle
+            + "Unable to build metaXplor archive: missing file(s): "
+            + ", ".join(missing_metaxplor)
+            + core.normalStyle
+        )
+        return False
+
+    archive_path = str(Path(core.current_dir) / "outputs" / ("mbctools_metaxplor_" + date_tag + ".zip"))
+    _create_archive(core, archive_path, metaxplor_entries, "metaXplor")
+    return True
+
+
+def _write_mian_archive(core):
+    date_tag = core.date.strftime("%Y%m%d")
+
+    mian_sequences_path = str(Path(core.current_dir) / "tmp_files" / "mian_OTU.tsv")
+    mian_taxonomy_path = str(Path(core.current_dir) / "tmp_files" / "mian_taxonomy.tsv")
+    mian_entries = [
+        (mian_sequences_path, "otu_abundance_by_sample.tsv"),
+        (mian_taxonomy_path, "otu_taxonomy.tsv"),
+        (core.metaXplorSamples, "sample_metadata.tsv"),
+    ]
+    missing_mian = [source for source, _ in mian_entries if not os.path.isfile(source) or os.path.getsize(source) == 0]
+    if len(missing_mian) > 0:
+        print(
+            core.errorStyle
+            + "Unable to build MIAN archive: missing file(s): "
+            + ", ".join(missing_mian)
+            + core.normalStyle
+        )
+        return False
+
+    archive_path = str(Path(core.current_dir) / "outputs" / ("mbctools_mian_" + date_tag + ".zip"))
+    _create_archive(core, archive_path, mian_entries, "MIAN")
+    return True
+
+
+def _write_galaxy_pipeline_archive(core):
+    date_tag = core.date.strftime("%Y%m%d")
+
+    mian_taxonomy_path = str(Path(core.current_dir) / "tmp_files" / "mian_taxonomy.tsv")
+
+    galaxy_reference_fasta = str(Path(core.current_dir) / "outputs" / GALAXY_REFERENCE_FASTA_NAME)
+    galaxy_reference_taxonomy = str(Path(core.current_dir) / "outputs" / GALAXY_REFERENCE_TAXONOMY_NAME)
+    galaxy_entries = [
+        (core.metaXplorFasta, "otu_sequences.fasta"),
+        (mian_taxonomy_path, "otu_taxonomy.tsv"),
+        (galaxy_reference_fasta, "reference_sequences.fasta"),
+        (galaxy_reference_taxonomy, "reference_taxonomy.tsv"),
+    ]
+    missing_galaxy = [source for source, _ in galaxy_entries if not os.path.isfile(source) or os.path.getsize(source) == 0]
+    if len(missing_galaxy) > 0:
+        print(
+            core.errorStyle
+            + "Unable to build Galaxy phylogeny pipeline archive: missing file(s): "
+            + ", ".join(missing_galaxy)
+            + core.normalStyle
+        )
+        return False
+
+    archive_path = str(Path(core.current_dir) / "outputs" / ("mbctools_galaxy_phylogeny_pipeline_" + date_tag + ".zip"))
+    _create_archive(core, archive_path, galaxy_entries, "Galaxy phylogeny pipeline")
+    return True
+
+
+def menu4f(core):
+    prepare_with_previous_params(core)
+
+    fetchReferenceData = core.promptUser(
+        "Do you want to fetch/update reference FASTA + taxonomy from a BLAST hit-table now? Enter yes or no",
+        None,
+        ["yes", "no", "back", "home", "exit"],
+        1,
+        core.main_menu4,
+        "",
+    )
+    if fetchReferenceData == "yes":
+        default_hit_table_path = str(Path(core.current_dir) / "outputs" / "metaXplor_sequences_ncbi_blastn_hittable.txt")
+        if not os.path.isfile(default_hit_table_path):
+            default_hit_table_path = None
+
+        blastTextHitTable = core.promptUser(
+            "Enter path to blastn hit-table (text format #7) used for reference FASTA + taxonomy export",
+            default_hit_table_path,
+            ["back", "home", "exit"],
+            3,
+            core.main_menu4,
+            "",
+        )
+
+        with open(blastTextHitTable.strip(), "r") as infile:
+            lines = re.sub(r"\s\s+", "\t", infile.read()).splitlines()
+
+        if len(lines) == 0:
+            print(core.errorStyle + "Provided hit-table file is empty!" + core.normalStyle)
+            core.rerun(core.main_menu4)
+
+        try:
+            db_prefix = _infer_db_prefix_from_hit_table_lines(lines)
+        except Exception as e:
+            print(core.errorStyle + str(e) + core.normalStyle)
+            core.rerun(core.main_menu4)
+
+        api_key = input(core.promptStyle + "NCBI API key (optional)" + core.normalStyle + " (press Enter to skip): ").strip()
+        if api_key == "":
+            api_key = os.environ.get("NCBI_API_KEY", "")
+
+        output_fasta_path = str(Path(core.current_dir) / "outputs" / GALAXY_REFERENCE_FASTA_NAME)
+        try:
+            requested, retrieved, output_taxonomy_path = _download_subject_aligned_regions_fasta(
+                core, lines, db_prefix, output_fasta_path, api_key
+            )
+            if retrieved == 0:
+                print(core.warningStyle + "No reference sequences could be retrieved from NCBI." + core.normalStyle)
+            elif retrieved < requested:
+                print(
+                    core.warningStyle
+                    + f"Retrieved {retrieved}/{requested} deduplicated reference sequences into "
+                    + output_fasta_path
+                    + " and wrote taxonomy into "
+                    + output_taxonomy_path
+                    + core.normalStyle
+                )
+            else:
+                print(
+                    core.successStyle
+                    + f"Retrieved {retrieved} deduplicated reference sequences into "
+                    + output_fasta_path
+                    + " and wrote taxonomy into "
+                    + output_taxonomy_path
+                    + core.normalStyle
+                )
+        except Exception as e:
+            print(core.errorStyle + "Unable to export reference FASTA + taxonomy: " + str(e) + core.normalStyle)
+
+    _write_galaxy_pipeline_archive(core)
 
     core.rerun(core.main_menu4)
 
@@ -1238,25 +1463,34 @@ def main_menu4(core):
     core.os.system("cls" if core.winOS else "clear")
     print(
         core.titleStyle
-        + "\n--- MENU 4: EXPORTING ANALYSIS RESULTS INTO metaXplor FORMAT ---"
+        + "\n--- MENU 4: CONVERTING ANALYSIS OUTPUTS FOR EXTERNAL TOOLS ---"
         + core.normalStyle
         + "\n\n"
-        "4a -> Generate sequence files\n"
-        "\tCompiles all sequences selected for all loci into a single fasta\n"
-        "\tOutputs a .tsv file indicating samples weights for each sequence\n\n"
-        "4b -> Generate assignment file\n"
-        "\tConverts blastn results (obtained from blasting above-mentioned fasta file) from 'Hit table (text)'"
-        "\n\t(format #7) into metaXplor format\n\n"
-        "4c -> Build metaXplor-format sample metadata file from provided tabulated file\n\n"
-        "4d -> Compress all metaXplor files into a final, ready to import, zip archive\n\n"
-        "4e -> Generate MIAN data files from metaXplor files\n"
+        + core.warningStyle
+        + "Required step paths by target output:\n"
+        "\tmetaXplor archive: 4a + 4b + 4c + 4d\n"
+        "\tMIAN archive: 4a + 4b + 4c + 4e\n"
+        "\tGalaxy phylogeny pipeline archive: 4a + 4b + 4e + 4f\n\n"
+        + core.normalStyle
+        + "4a -> Generate OTU sequence and abundance files" + core.warningStyle + " (mandatory)" + core.normalStyle + "\n"
+        "\tCompiles all selected sequences into one OTU fasta and one abundance table\n\n"
+        "4b -> Generate OTU assignments" + core.warningStyle + " (mandatory)" + core.normalStyle + "\n"
+        "\tConverts BLAST hit-table (format #7) into assignment file\n\n"
+        "4c -> Build sample metadata file from provided tabulated file\n\n"
+        "4d -> Build metaXplor archive\n"
+        "\tBuilds mbctools_metaxplor_YYYYMMDD.zip\n\n"
+        "4e -> Generate MIAN taxonomy from OTU assignments and build MIAN archive\n"
+        "\tBuilds mbctools_mian_YYYYMMDD.zip\n\n"
+        "4f -> Build Galaxy phylogeny pipeline archive\n"
+        "\tOptionally fetches/updates reference FASTA + taxonomy from BLAST hit-table\n"
+        "\tBuilds mbctools_galaxy_phylogeny_pipeline_YYYYMMDD.zip\n"
         + core.normalStyle
     )
 
     core.rmenu = core.promptUser(
         "Please select an option among those listed above",
         None,
-        ["4a", "4b", "4c", "4d", "4e", "back", "home", "exit"],
+        ["4a", "4b", "4c", "4d", "4e", "4f", "back", "home", "exit"],
         1,
         core.main,
         "",
@@ -1272,6 +1506,8 @@ def main_menu4(core):
         menu4d(core, True)
     elif core.rmenu == "4e":
         menu4e(core)
+    elif core.rmenu == "4f":
+        menu4f(core)
 
 
 def menu4a(core):
@@ -1490,48 +1726,7 @@ def menu4b(core):
 
     print(core.successStyle + "File " + core.metaXplorAssignments + " was successfully written" + core.normalStyle)
 
-    exportMatchedSubjectFasta = core.promptUser(
-        "Also export FASTA for aligned subject intervals (sstart/send) from this hit-table? Enter yes or no",
-        None,
-        ["yes", "no"],
-        1,
-        None,
-        "",
-    )
-    if exportMatchedSubjectFasta == "yes":
-        api_key = input(core.promptStyle + "NCBI API key (optional)" + core.normalStyle + " (press Enter to skip): ").strip()
-        if api_key == "":
-            api_key = os.environ.get("NCBI_API_KEY", "")
-
-        output_fasta_path = str(Path(core.current_dir) / "outputs" / (Path(blastTextHitTable).stem + "_subject_intervals.fasta"))
-        try:
-            requested, retrieved, output_taxonomy_path = _download_subject_aligned_regions_fasta(
-                core, lines, database, output_fasta_path, api_key
-            )
-            if retrieved == 0:
-                print(core.warningStyle + "No aligned subject interval sequences could be retrieved from NCBI." + core.normalStyle)
-            elif retrieved < requested:
-                print(
-                    core.warningStyle
-                    + f"Retrieved {retrieved}/{requested} deduplicated aligned subject interval sequences into "
-                    + output_fasta_path
-                    + " and wrote taxonomy into "
-                    + output_taxonomy_path
-                    + core.normalStyle
-                )
-            else:
-                print(
-                    core.successStyle
-                    + f"Retrieved {retrieved} deduplicated aligned subject interval sequences into "
-                    + output_fasta_path
-                    + " and wrote taxonomy into "
-                    + output_taxonomy_path
-                    + core.normalStyle
-                )
-        except Exception as e:
-            print(core.errorStyle + "Unable to export subject FASTA: " + str(e) + core.normalStyle)
-
-    menu4d(core, False)
+    core.rerun(core.main_menu4)
 
 
 def menu4c(core):
@@ -1658,50 +1853,12 @@ def menu4c(core):
         os.remove(core.metaXplorSamples)
     else:
         print(core.successStyle + "File " + core.metaXplorSamples + " was successfully written" + core.normalStyle)
-    menu4d(core, False)
+    core.rerun(core.main_menu4)
 
 
 def menu4d(core, invokedByUser):
-    if not os.path.isfile(core.metaXplorFasta) or os.path.getsize(core.metaXplorFasta) == 0:
-        if invokedByUser:
-            print(core.errorStyle + "\nFile " + core.metaXplorFasta + " is missing or empty. Please run step 4a" + core.normalStyle)
-        core.rerun(core.main_menu4)
-    if not os.path.isfile(core.metaXplorSequenceComposition) or os.path.getsize(core.metaXplorSequenceComposition) == 0:
-        if invokedByUser:
-            print(core.errorStyle + "\nFile " + core.metaXplorSequenceComposition + " is missing or empty. Please run step 4a" + core.normalStyle)
-        core.rerun(core.main_menu4)
-    if not os.path.isfile(core.metaXplorAssignments) or os.path.getsize(core.metaXplorAssignments) == 0:
-        if invokedByUser:
-            print(core.errorStyle + "\nFile " + core.metaXplorAssignments + " is missing or empty. Please run step 4b" + core.normalStyle)
-        core.rerun(core.main_menu4)
-    if not os.path.isfile(core.metaXplorSamples) or os.path.getsize(core.metaXplorSamples) == 0:
-        if invokedByUser:
-            print(core.errorStyle + "\nFile " + core.metaXplorSamples + " is missing or empty. Please run step 4c" + core.normalStyle)
-        core.rerun(core.main_menu4)
-
-    print("\n\nAll metaXplor files seem to be ready for zipping.")
-    core.zipNow = core.promptUser(
-        "Zip them now to create the final import file? " + core.normalStyle + "Enter yes or no" + core.promptStyle,
-        None,
-        ["yes", "no"],
-        1,
-        None,
-        "",
-    )
-    if core.zipNow == "yes":
-        b = io.BytesIO()
-        zf = zipfile.ZipFile(b, mode="w")
-        zf.write(core.metaXplorSamples, os.path.basename(core.metaXplorSamples))
-        zf.write(core.metaXplorAssignments, os.path.basename(core.metaXplorAssignments))
-        zf.write(core.metaXplorFasta, os.path.basename(core.metaXplorFasta))
-        zf.write(core.metaXplorSequenceComposition, os.path.basename(core.metaXplorSequenceComposition))
-        zf.close()
-        zipFileName = "mbctools_metaXplor_export_" + core.date.strftime("%Y%m%d") + ".zip"
-        open(zipFileName, "wb").write(b.getbuffer())
-        print(core.successStyle + "\n\nmetaXplor import archive was successfully created as " + core.current_dir + core.fileSep + zipFileName + core.normalStyle)
-        core.rerun(core.main_menu4)
-    else:
-        main_menu4(core)
+    _write_metaxplor_archive(core)
+    core.rerun(core.main_menu4)
 
 
 def parse_date(date_str):

@@ -7,7 +7,7 @@ metabarcoding data in the best conditions. It assumes VSEARCH is pre-installed a
         merging, dereplication, clustering, chimera detection, affiliation of clusters to loci, sequence re-orientation
 2 -> PRIMER REMOVAL AND SELECTION OF MINIMUM SEQUENCE ABUNDANCE LEVELS ACCORDING TO USER-DEFINED THRESHOLDS
 3 -> GENERATION OF A UNIQUE SEQUENCE FILE FOR EACH LOCUS (comprising all samples' data)
-4 -> EXPORTING ANALYSIS RESULTS INTO metaXplor and MIAN FORMATS
+4 -> CONVERTING ANALYSIS OUTPUTS FOR EXTERNAL TOOLS
 
 Option 1 offers the following submenu:
 
@@ -30,8 +30,9 @@ Option 4 offers the following submenu:
 4a -> Generate sequence files
 4b -> Generate assignment file
 4c -> Build metaXplor-format sample metadata file from provided tabulated file
-4d -> Compress all metaXplor files into a final, ready to import, zip archive
-4e -> Generate MIAN data files from metaXplor files
+4d -> Build metaXplor archive
+4e -> Generate MIAN taxonomy and build MIAN archive
+4f -> Build Galaxy phylogeny pipeline archive
 
 
 VSEARCH reference:
@@ -46,8 +47,8 @@ Usage:
 
 __authors__ = "Christian Barnabé, Guilhem Sempéré"
 __contact__ = "guilhem.sempere@cirad.fr"
-__date__ = "2026-04-30"
-__version__ = "2.0.0a4"
+__date__ = "2026-05-11"
+__version__ = "2.0.0a5"
 __copyright__ = "Copyright (c) 2024-2026 IRD, CIRAD"
 __license__ = "This software is licensed under the MIT License. The full license text is available at https://github.com/GuilhemSempere/mbctools/blob/main/LICENSE"
 
@@ -698,6 +699,14 @@ def menu4d(invokedByUser):
         return mbc_option4.menu4d(sys.modules[__name__], invokedByUser)
 
 
+def menu4e():
+        return mbc_option4.menu4e(sys.modules[__name__])
+
+
+def menu4f():
+        return mbc_option4.menu4f(sys.modules[__name__])
+
+
 def parse_date(date_str):
         return mbc_option4.parse_date(date_str)
 
@@ -780,7 +789,7 @@ def main():
         print(  "1 -> INITIAL ANALYSIS (" + warningStyle + "mandatory" + normalStyle + "): read merging, sample-level dereplication, sequence clustering,\n\tchimera detection, affiliation of sequences to loci, and sequence re-orientation\n\n"
                         "2 -> PRIMER REMOVAL AND SELECTION OF MINIMUM SEQUENCE ABUNDANCE LEVELS ACCORDING TO USER-DEFINED THRESHOLDS\n\n"
                         "3 -> GENERATION OF A UNIQUE SEQUENCE FILE FOR EACH LOCUS (comprising all samples' data)\n\n"
-                        "4 -> EXPORTING ANALYSIS RESULTS INTO metaXplor and MIAN FORMATS\n")
+                        "4 -> CONVERTING ANALYSIS OUTPUTS FOR EXTERNAL TOOLS\n")
 
         global menu
         menu = promptUser("Please select an option among those listed above", None, ["1", "2", "3", "4", "exit"], 1, None, "")
