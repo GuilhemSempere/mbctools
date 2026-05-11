@@ -5,12 +5,14 @@ import io
 import os
 import re
 import time
+import threading
 import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 BLAST_URL = "https://blast.ncbi.nlm.nih.gov/blast/Blast.cgi"
@@ -33,10 +35,25 @@ NON_INFORMATIVE_TAXA = {
     "unknown",
     "metagenome",
 }
+DEFAULT_MAX_WORKERS = 3
+API_KEY_MAX_WORKERS = 10
 
 
 def _has_any_taxonomy_value(lineage):
     return any((lineage.get(rank) or "").strip() != "" for rank in MIAN_RANKS)
+
+
+def _has_valid_ncbi_api_key(api_key):
+    key = (api_key or "").strip()
+    return len(key) >= 20 and " " not in key
+
+
+def _ncbi_rate_limit(api_key):
+    return 10.0 if _has_valid_ncbi_api_key(api_key) else 3.0
+
+
+def _ncbi_max_workers(api_key):
+    return API_KEY_MAX_WORKERS if _has_valid_ncbi_api_key(api_key) else DEFAULT_MAX_WORKERS
 
 
 def _blast_post(params):
@@ -371,19 +388,28 @@ def _download_subject_aligned_regions_fasta(core, hit_table_lines, db_prefix, ou
 
     accession_to_taxid = {}
     if db_prefix == "n":
+        # Share one limiter across taxid and lineage phases, like OTU taxonomy build.
+        rate = _ncbi_rate_limit(api_key)
+        limiter = _RateLimiter(rate)
+
         if len(unique_accessions) > 0:
-            total_taxid_batches = max(1, (len(unique_accessions) + BATCH_SIZE - 1) // BATCH_SIZE)
-            taxid_phase_start = time.time()
-            for batch_i, accession_batch in enumerate(_chunked(unique_accessions, BATCH_SIZE), start=1):
-                time.sleep(visible_pause)
-                accession_to_taxid.update(_fetch_taxids_from_accessions(accession_batch, api_key))
-                elapsed = int(time.time() - taxid_phase_start)
+            def _taxid_progress(completed, total_batches):
+                elapsed = int(time.time() - full_seq_phase_start)
                 print(
                     core.warningStyle
-                    + f"Subject taxid batch retrieval progress: {batch_i}/{total_taxid_batches} (elapsed {elapsed}s)"
+                    + f"Subject taxid batch retrieval progress: {completed}/{total_batches} (elapsed {elapsed}s)"
                     + core.normalStyle,
                     flush=True,
                 )
+
+            accession_to_taxid.update(
+                _fetch_taxids_from_accessions(
+                    unique_accessions,
+                    api_key,
+                    limiter=limiter,
+                    progress_callback=_taxid_progress,
+                )
+            )
 
             missing_taxid_accessions = [accession for accession in unique_accessions if accession_to_taxid.get(accession) in [None, ""]]
             if len(missing_taxid_accessions) > 0:
@@ -394,7 +420,7 @@ def _download_subject_aligned_regions_fasta(core, hit_table_lines, db_prefix, ou
                     flush=True,
                 )
             for accession in missing_taxid_accessions:
-                time.sleep(visible_pause)
+                limiter.acquire()
                 accession_to_taxid[accession] = _fetch_taxid_from_accession(accession, api_key)
 
     unique_taxids = []
@@ -404,18 +430,23 @@ def _download_subject_aligned_regions_fasta(core, hit_table_lines, db_prefix, ou
 
     taxid_to_lineage = {}
     if len(unique_taxids) > 0:
-        total_lineage_batches = max(1, (len(unique_taxids) + BATCH_SIZE - 1) // BATCH_SIZE)
-        lineage_phase_start = time.time()
-        for batch_i, taxid_batch in enumerate(_chunked(unique_taxids, BATCH_SIZE), start=1):
-            time.sleep(visible_pause)
-            taxid_to_lineage.update(_fetch_lineages_from_taxids(taxid_batch, api_key))
-            elapsed = int(time.time() - lineage_phase_start)
+        def _lineage_progress(completed, total_batches):
+            elapsed = int(time.time() - full_seq_phase_start)
             print(
                 core.warningStyle
-                + f"Subject lineage batch retrieval progress: {batch_i}/{total_lineage_batches} (elapsed {elapsed}s)"
+                + f"Subject lineage batch retrieval progress: {completed}/{total_batches} (elapsed {elapsed}s)"
                 + core.normalStyle,
                 flush=True,
             )
+
+        taxid_to_lineage.update(
+            _fetch_lineages_from_taxids(
+                unique_taxids,
+                api_key,
+                limiter=limiter,
+                progress_callback=_lineage_progress,
+            )
+        )
 
         missing_lineage_taxids = [
             taxid for taxid in unique_taxids if not _has_any_taxonomy_value(taxid_to_lineage.get(taxid, {rank: "" for rank in MIAN_RANKS}))
@@ -428,7 +459,7 @@ def _download_subject_aligned_regions_fasta(core, hit_table_lines, db_prefix, ou
                 flush=True,
             )
         for taxid in missing_lineage_taxids:
-            time.sleep(visible_pause)
+            limiter.acquire()
             taxid_to_lineage[taxid] = _fetch_lineage_from_taxid(taxid, api_key)
 
     accession_candidates = {}
@@ -723,79 +754,196 @@ def _subject_interval_representative_key(entry):
     )
 
 
-def _fetch_taxid_from_accession(accession, api_key):
+# --------------------------------------------------------------------------- #
+# Token-bucket rate limiter (shared across all worker threads)
+# --------------------------------------------------------------------------- #
+
+class _RateLimiter:
+    """
+    Thread-safe token bucket.  Calling .acquire() blocks until a request
+    slot is available, ensuring we never exceed `rate` calls per second
+    regardless of how many threads are running.
+    """
+    def __init__(self, rate: float):
+        self._rate      = rate
+        self._tokens    = rate          # start full
+        self._lock      = threading.Lock()
+        self._last_time = time.monotonic()
+
+    def acquire(self):
+        with self._lock:
+            now             = time.monotonic()
+            elapsed         = now - self._last_time
+            self._last_time = now
+            self._tokens    = min(self._rate, self._tokens + elapsed * self._rate)
+            if self._tokens < 1:
+                sleep_for    = (1 - self._tokens) / self._rate
+                time.sleep(sleep_for)
+                self._tokens = 0
+            else:
+                self._tokens -= 1
+
+
+# --------------------------------------------------------------------------- #
+# Internal eutils helpers
+# --------------------------------------------------------------------------- #
+
+def _build_url(endpoint: str, params: dict) -> str:
+    return (
+        "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
+        + endpoint
+        + "?"
+        + urllib.parse.urlencode(params)
+    )
+
+
+def _http_get(url: str, timeout: int = 60) -> bytes | None:
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as resp:
+            return resp.read()
+    except Exception:
+        return None
+
+
+def _esummary_taxids_batch(accessions: list[str], api_key) -> dict[str, str | None]:
+    """
+    Fast path: nuccore esummary returns TaxId directly without parsing
+    full GenBank XML.  Resolves the vast majority of standard accessions
+    at a fraction of the bandwidth cost of efetch rettype=gb.
+    """
+    result: dict[str, str | None] = {a: None for a in accessions}
     params = {
-        "db": "nuccore",
-        "id": accession,
-        "rettype": "gb",
+        "db":      "nuccore",
+        "id":      ",".join(accessions),
         "retmode": "xml",
-        "tool": "mbctools",
+        "tool":    "mbctools",
     }
     if api_key:
         params["api_key"] = api_key
 
-    url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?" + urllib.parse.urlencode(params)
+    raw = _http_get(_build_url("esummary.fcgi", params))
+    if raw is None:
+        return result
+
     try:
-        with urllib.request.urlopen(url, timeout=20) as resp:
-            root = ET.fromstring(resp.read())
-        for feature in root.iter("GBFeature"):
+        root = ET.fromstring(raw)
+    except ET.ParseError:
+        return result
+
+    for docsum in root.findall("DocSum"):
+        accession_version = ""
+        taxid             = ""
+        for item in docsum.findall("Item"):
+            name = item.get("Name", "")
+            if name == "AccessionVersion" and item.text:
+                accession_version = item.text.strip()
+            if name == "TaxId" and item.text:
+                taxid = item.text.strip()
+
+        if accession_version and taxid:
+            result[accession_version] = taxid
+            bare = accession_version.split(".")[0]
+            if bare in result:
+                result[bare] = taxid
+
+    return result
+
+
+def _efetch_taxids_batch(accessions: list[str], api_key) -> dict[str, str | None]:
+    """
+    Slow path / fallback: full GenBank XML fetch.  Used only for accessions
+    that esummary did not resolve (suppressed, non-standard, or WGS records).
+    Logic identical to the original _fetch_taxids_from_accessions inner loop.
+    """
+    result: dict[str, str | None] = {a: None for a in accessions}
+    params = {
+        "db":      "nuccore",
+        "id":      ",".join(accessions),
+        "rettype": "gb",
+        "retmode": "xml",
+        "tool":    "mbctools",
+    }
+    if api_key:
+        params["api_key"] = api_key
+
+    raw = _http_get(_build_url("efetch.fcgi", params))
+    if raw is None:
+        return result
+
+    try:
+        root = ET.fromstring(raw)
+    except ET.ParseError:
+        return result
+
+    for gbseq in root.iter("GBSeq"):
+        accession         = (gbseq.findtext("GBSeq_primary-accession") or "").strip()
+        accession_version = (gbseq.findtext("GBSeq_accession-version")  or "").strip()
+        target_accession  = accession_version or accession
+        taxid = None
+
+        for feature in gbseq.iter("GBFeature"):
             key = feature.find("GBFeature_key")
-            if key is not None and key.text == "source":
-                for qualifier in feature.iter("GBQualifier"):
-                    qname = qualifier.find("GBQualifier_name")
-                    qvalue = qualifier.find("GBQualifier_value")
-                    if qname is not None and qname.text == "db_xref" and qvalue is not None and qvalue.text and "taxon:" in qvalue.text:
-                        return qvalue.text.split("taxon:", 1)[1].strip()
-    except Exception:
-        return None
-    return None
+            if key is None or key.text != "source":
+                continue
+            for qualifier in feature.iter("GBQualifier"):
+                qname  = qualifier.find("GBQualifier_name")
+                qvalue = qualifier.find("GBQualifier_value")
+                if (
+                    qname  is not None and qname.text  == "db_xref"
+                    and qvalue is not None and qvalue.text
+                    and "taxon:" in qvalue.text
+                ):
+                    taxid = qvalue.text.split("taxon:", 1)[1].strip()
+                    break
+            if taxid is not None:
+                break
+
+        for key in (target_accession, accession):
+            if key and key in result:
+                result[key] = taxid
+
+    return result
 
 
-def _fetch_taxids_from_accessions(accessions, api_key):
+def _fetch_taxid_from_accession(accession, api_key):
+    r = _esummary_taxids_batch([accession], api_key)
+    if r.get(accession):
+        return r[accession]
+    r = _efetch_taxids_batch([accession], api_key)
+    return r.get(accession)
+
+
+def _fetch_taxids_for_batch(accessions, api_key, limiter):
+    limiter.acquire()
+    result = _esummary_taxids_batch(accessions, api_key)
+    missing = [accession for accession in accessions if not result.get(accession)]
+    if len(missing) > 0:
+        limiter.acquire()
+        result.update(_efetch_taxids_batch(missing, api_key))
+    return result
+
+
+def _fetch_taxids_from_accessions(accessions, api_key, limiter=None, progress_callback=None):
+    """
+    Concurrent accession -> taxid retrieval across batches.
+    Each batch uses esummary first, then efetch fallback for unresolved accessions.
+    """
     taxids = {accession: None for accession in accessions}
     if len(accessions) == 0:
         return taxids
 
-    params = {
-        "db": "nuccore",
-        "id": ",".join(accessions),
-        "rettype": "gb",
-        "retmode": "xml",
-        "tool": "mbctools",
-    }
-    if api_key:
-        params["api_key"] = api_key
+    shared_limiter = limiter if limiter is not None else _RateLimiter(_ncbi_rate_limit(api_key))
+    batches = list(_chunked(accessions, BATCH_SIZE))
+    total_batches = len(batches)
 
-    url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?" + urllib.parse.urlencode(params)
-    try:
-        with urllib.request.urlopen(url, timeout=60) as resp:
-            root = ET.fromstring(resp.read())
-
-        for gbseq in root.iter("GBSeq"):
-            accession = (gbseq.findtext("GBSeq_primary-accession") or "").strip()
-            accession_version = (gbseq.findtext("GBSeq_accession-version") or "").strip()
-            target_accession = accession_version or accession
-            taxid = None
-
-            for feature in gbseq.iter("GBFeature"):
-                key = feature.find("GBFeature_key")
-                if key is None or key.text != "source":
-                    continue
-                for qualifier in feature.iter("GBQualifier"):
-                    qname = qualifier.find("GBQualifier_name")
-                    qvalue = qualifier.find("GBQualifier_value")
-                    if qname is not None and qname.text == "db_xref" and qvalue is not None and qvalue.text and "taxon:" in qvalue.text:
-                        taxid = qvalue.text.split("taxon:", 1)[1].strip()
-                        break
-                if taxid is not None:
-                    break
-
-            if target_accession != "":
-                taxids[target_accession] = taxid
-                if accession != "":
-                    taxids[accession] = taxid
-    except Exception:
-        pass
+    with ThreadPoolExecutor(max_workers=_ncbi_max_workers(api_key)) as pool:
+        futures = {pool.submit(_fetch_taxids_for_batch, batch, api_key, shared_limiter): batch for batch in batches}
+        completed = 0
+        for future in as_completed(futures):
+            taxids.update(future.result())
+            completed += 1
+            if progress_callback is not None:
+                progress_callback(completed, total_batches)
 
     return taxids
 
@@ -803,34 +951,34 @@ def _fetch_taxids_from_accessions(accessions, api_key):
 def _fetch_lineage_from_taxid(taxid, api_key):
     result = {rank: "" for rank in MIAN_RANKS}
     params = {
-        "db": "taxonomy",
-        "id": taxid,
+        "db":      "taxonomy",
+        "id":      taxid,
         "retmode": "xml",
-        "tool": "mbctools",
+        "tool":    "mbctools",
     }
     if api_key:
         params["api_key"] = api_key
 
-    url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?" + urllib.parse.urlencode(params)
-    try:
-        with urllib.request.urlopen(url, timeout=20) as resp:
-            root = ET.fromstring(resp.read())
+    raw = _http_get(_build_url("efetch.fcgi", params), timeout=20)
+    if raw is None:
+        return result
 
-        # Parse only the top-level returned taxon. Iterating nested LineageEx
-        # taxa can overwrite complete lineage with sparse single-rank entries.
-        top_taxon = root.find("Taxon")
-        if top_taxon is not None:
-            result = _extract_lineage_from_taxon(top_taxon)
-    except Exception:
-        pass
+    try:
+        root = ET.fromstring(raw)
+    except ET.ParseError:
+        return result
+
+    top_taxon = root.find("Taxon")
+    if top_taxon is not None:
+        result = _extract_lineage_from_taxon(top_taxon)
 
     return result
 
 
 def _extract_lineage_from_taxon(taxon):
-    result = {rank: "" for rank in MIAN_RANKS}
-    current_rank = (taxon.findtext("Rank") or "").lower()
-    organism_name = taxon.findtext("ScientificName") or ""
+    result        = {rank: "" for rank in MIAN_RANKS}
+    current_rank  = (taxon.findtext("Rank")          or "").lower()
+    organism_name =  taxon.findtext("ScientificName") or ""
 
     lineage_ex = taxon.find("LineageEx")
     if lineage_ex is not None:
@@ -854,11 +1002,9 @@ def _extract_lineage_from_taxon(taxon):
     return result
 
 
-def _fetch_lineages_from_taxids(taxids, api_key):
-    lineage_map = {taxid: {rank: "" for rank in MIAN_RANKS} for taxid in taxids}
-    if len(taxids) == 0:
-        return lineage_map
-
+def _fetch_lineages_for_batch(taxids, api_key, limiter):
+    limiter.acquire()
+    result = {taxid: {rank: "" for rank in MIAN_RANKS} for taxid in taxids}
     params = {
         "db": "taxonomy",
         "id": ",".join(taxids),
@@ -868,28 +1014,59 @@ def _fetch_lineages_from_taxids(taxids, api_key):
     if api_key:
         params["api_key"] = api_key
 
-    url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?" + urllib.parse.urlencode(params)
-    try:
-        with urllib.request.urlopen(url, timeout=60) as resp:
-            root = ET.fromstring(resp.read())
+    raw = _http_get(_build_url("efetch.fcgi", params))
+    if raw is None:
+        return result
 
-        # Only process top-level returned taxa. Nested LineageEx taxa must not
-        # overwrite full lineages with sparse single-rank entries.
-        for taxon in root.findall("Taxon"):
-            taxid = (taxon.findtext("TaxId") or "").strip()
-            if taxid != "":
-                lineage_map[taxid] = _extract_lineage_from_taxon(taxon)
-    except Exception:
-        pass
+    try:
+        root = ET.fromstring(raw)
+    except ET.ParseError:
+        return result
+
+    for taxon in root.findall("Taxon"):
+        taxid = (taxon.findtext("TaxId") or "").strip()
+        if taxid:
+            result[taxid] = _extract_lineage_from_taxon(taxon)
+
+    return result
+
+
+def _fetch_lineages_from_taxids(taxids, api_key, limiter=None, progress_callback=None):
+    """
+    Concurrent taxid -> lineage retrieval across batches.
+    """
+    lineage_map = {taxid: {rank: "" for rank in MIAN_RANKS} for taxid in taxids}
+    if len(taxids) == 0:
+        return lineage_map
+
+    shared_limiter = limiter if limiter is not None else _RateLimiter(_ncbi_rate_limit(api_key))
+    batches = list(_chunked(taxids, BATCH_SIZE))
+    total_batches = len(batches)
+
+    with ThreadPoolExecutor(max_workers=_ncbi_max_workers(api_key)) as pool:
+        futures = {pool.submit(_fetch_lineages_for_batch, batch, api_key, shared_limiter): batch for batch in batches}
+        completed = 0
+        for future in as_completed(futures):
+            lineage_map.update(future.result())
+            completed += 1
+            if progress_callback is not None:
+                progress_callback(completed, total_batches)
 
     return lineage_map
 
 
 def _build_mian_taxonomy(core, assignments_path, output_path, api_key):
+    """
+    - time.sleep() between requests removed — rate limiting is now handled
+      by the token-bucket limiter shared across worker threads.
+    - A single _RateLimiter instance is created here and reused across
+      both the taxid and lineage fetch phases so the rate budget is
+      shared correctly across the whole function.
+    - Progress reporting preserved exactly as in the original.
+    """
     all_hits = _load_all_hits(assignments_path)
-    cache = {}
-    sleep_between_requests = 0.11 if api_key else 0.34
-    total = len(all_hits)
+    cache    = {}
+    total    = len(all_hits)
 
     if total == 0:
         raise ValueError("No query hits found in assignments file")
@@ -903,19 +1080,24 @@ def _build_mian_taxonomy(core, assignments_path, output_path, api_key):
                 unique_accessions.append(accession)
 
     if len(unique_accessions) > 0:
-        print(core.warningStyle + f"Fetching NCBI taxids for matched subjects..." + core.normalStyle, flush=True)
+        print(core.warningStyle + "Fetching NCBI taxids for matched subjects..." + core.normalStyle, flush=True)
 
-    accession_to_taxid = {}
-    total_accession_batches = max(1, (len(unique_accessions) + BATCH_SIZE - 1) // BATCH_SIZE)
-    for batch_i, accession_batch in enumerate(_chunked(unique_accessions, BATCH_SIZE), start=1):
-        time.sleep(sleep_between_requests)
-        accession_to_taxid.update(_fetch_taxids_from_accessions(accession_batch, api_key))
-        print(
+    # Single limiter shared across all network phases of this function
+    rate    = _ncbi_rate_limit(api_key)
+    limiter = _RateLimiter(rate)
+
+    # ── accession → taxid ─────────────────────────────────────────────────
+    accession_to_taxid = _fetch_taxids_from_accessions(
+        unique_accessions,
+        api_key,
+        limiter=limiter,
+        progress_callback=lambda completed, total_batches: print(
             core.warningStyle
-            + f"Taxid batch progress: {batch_i}/{total_accession_batches}"
+            + f"Taxid batch progress: {completed}/{total_batches}"
             + core.normalStyle,
             flush=True,
-        )
+        ),
+    )
 
     missing_accessions = [a for a in unique_accessions if accession_to_taxid.get(a) in (None, "")]
     if len(missing_accessions) > 0:
@@ -926,9 +1108,10 @@ def _build_mian_taxonomy(core, assignments_path, output_path, api_key):
             flush=True,
         )
         for accession in missing_accessions:
-            time.sleep(sleep_between_requests)
+            limiter.acquire()
             accession_to_taxid[accession] = _fetch_taxid_from_accession(accession, api_key)
 
+    # ── taxid → lineage ───────────────────────────────────────────────────
     unique_taxids = []
     for accession in unique_accessions:
         taxid = accession_to_taxid.get(accession)
@@ -936,21 +1119,27 @@ def _build_mian_taxonomy(core, assignments_path, output_path, api_key):
             unique_taxids.append(taxid)
 
     taxid_to_lineage = {}
+
     if len(unique_taxids) > 0:
         print(core.warningStyle + f"Fetching NCBI taxonomy lineages in batches of {BATCH_SIZE}..." + core.normalStyle, flush=True)
-    total_taxid_batches = max(1, (len(unique_taxids) + BATCH_SIZE - 1) // BATCH_SIZE)
-    for batch_i, taxid_batch in enumerate(_chunked(unique_taxids, BATCH_SIZE), start=1):
-        time.sleep(sleep_between_requests)
-        taxid_to_lineage.update(_fetch_lineages_from_taxids(taxid_batch, api_key))
-        print(
-            core.warningStyle
-            + f"Lineage batch progress: {batch_i}/{total_taxid_batches}"
-            + core.normalStyle,
-            flush=True,
+
+    taxid_to_lineage.update(
+        _fetch_lineages_from_taxids(
+            unique_taxids,
+            api_key,
+            limiter=limiter,
+            progress_callback=lambda completed, total_batches: print(
+                core.warningStyle
+                + f"Lineage batch progress: {completed}/{total_batches}"
+                + core.normalStyle,
+                flush=True,
+            ),
         )
+    )
 
     missing_taxids = [
-        t for t in unique_taxids if not _has_any_taxonomy_value(taxid_to_lineage.get(t, {rank: "" for rank in MIAN_RANKS}))
+        t for t in unique_taxids
+        if not _has_any_taxonomy_value(taxid_to_lineage.get(t, {rank: "" for rank in MIAN_RANKS}))
     ]
     if len(missing_taxids) > 0:
         print(
@@ -960,9 +1149,10 @@ def _build_mian_taxonomy(core, assignments_path, output_path, api_key):
             flush=True,
         )
         for taxid in missing_taxids:
-            time.sleep(sleep_between_requests)
+            limiter.acquire()
             taxid_to_lineage[taxid] = _fetch_lineage_from_taxid(taxid, api_key)
 
+    # ── populate cache ─────────────────────────────────────────────────────
     for accession in unique_accessions:
         taxid = accession_to_taxid.get(accession)
         if taxid is None:
@@ -970,6 +1160,7 @@ def _build_mian_taxonomy(core, assignments_path, output_path, api_key):
         else:
             cache[accession] = taxid_to_lineage.get(taxid, {rank: "" for rank in MIAN_RANKS})
 
+    # ── write TSV ──────────────────────────────────────────────────────────
     with open(output_path, "w", encoding="utf-8", newline="") as outfile:
         writer = csv.DictWriter(outfile, fieldnames=["OTU"] + MIAN_RANKS, delimiter="\t")
         writer.writeheader()
@@ -977,14 +1168,10 @@ def _build_mian_taxonomy(core, assignments_path, output_path, api_key):
         for i, (qseqid, accessions) in enumerate(all_hits.items(), start=1):
             lineages = [cache.get(accession, {rank: "" for rank in MIAN_RANKS}) for accession in accessions]
 
-            # Prefer informative lineages to avoid empty LCA caused by generic
-            # placeholders such as "environmental samples" or "uncultured bacterium".
             informative_lineages = [lineage for lineage in lineages if _is_informative_lineage(lineage)]
-            source_lineages = informative_lineages if len(informative_lineages) > 0 else lineages
-            lca = _compute_lca(source_lineages)
+            source_lineages      = informative_lineages if len(informative_lineages) > 0 else lineages
+            lca                  = _compute_lca(source_lineages)
 
-            # If LCA still collapses to empty while at least one lineage has taxonomy,
-            # keep the most informative lineage instead of writing a fully empty row.
             if not _has_any_taxonomy_value(lca):
                 non_empty_lineages = [lineage for lineage in source_lineages if _has_any_taxonomy_value(lineage)]
                 if len(non_empty_lineages) > 0:
@@ -994,7 +1181,6 @@ def _build_mian_taxonomy(core, assignments_path, output_path, api_key):
             row.update({rank: lca.get(rank, "") for rank in MIAN_RANKS})
             writer.writerow(row)
 
-            # Print visible progress updates in terminals that do not render carriage-return rewrites.
             if i == 1 or i == total or i % max(1, total // 20) == 0:
                 percent = int((i * 100) / total)
                 print(core.warningStyle + f"Taxonomy file building progress: {i}/{total} ({percent}%)" + core.normalStyle, flush=True)
