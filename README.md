@@ -10,7 +10,7 @@ Metabarcoding NGS data in best conditions. It features the following MAIN MENU:
 
 3 -> GENERATION OF A UNIQUE SEQUENCE FILE FOR EACH LOCUS (comprising all samples' data)
 
-4 -> EXPORTING ANALYSIS RESULTS INTO metaXplor and MIAN FORMATS
+4 -> CONVERTING ANALYSIS OUTPUTS FOR EXTERNAL TOOLS
 </pre>
 
 #### mbctools reference:

@@ -612,7 +612,8 @@ def quit_mbctools():
 def printHowToCite():
         print(warningStyle + "\nPlease cite this software as follows:" +
                         citationStyle + "\nmbctools:\tA User-Friendly Metabarcoding and Cross-Platform Pipeline for Analyzing\n\t\tMultiple Amplicon Sequencing Data across a Large Diversity of Organisms" + normalStyle
-                        + "\nChristian Barnabé, Guilhem Sempéré, Vincent Manzanilla and Etienne Waleckx.\n" + citationStyle + "https://github.com/GuilhemSempere/mbctools" + normalStyle + "\n\n")
+                        + "\nChristian Barnabé, Guilhem Sempéré, Vincent Manzanilla, Joel Moo Millan, Antoine Amblard-Rambert and Etienne Waleckx.\n" + citationStyle
+                        + "https://github.com/GuilhemSempere/mbctools" + normalStyle + "  -  doi: 10.24072/pcjournal.501\n\n")
 
 
 def main_menu1():
