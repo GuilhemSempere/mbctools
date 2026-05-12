@@ -47,8 +47,8 @@ Usage:
 
 __authors__ = "Christian Barnabé, Guilhem Sempéré"
 __contact__ = "guilhem.sempere@cirad.fr"
-__date__ = "2026-05-11"
-__version__ = "2.0.0a5"
+__date__ = "2026-05-12"
+__version__ = "2.0.0a6"
 __copyright__ = "Copyright (c) 2024-2026 IRD, CIRAD"
 __license__ = "This software is licensed under the MIT License. The full license text is available at https://github.com/GuilhemSempere/mbctools/blob/main/LICENSE"
 
